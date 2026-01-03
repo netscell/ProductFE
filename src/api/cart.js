@@ -13,6 +13,10 @@ export const addToCart = (productId, quantity = 1) => {
   });
 };
 
+export const deleteCartItem = (itemId) => {
+  return axiosInstance.delete(`/cart/items/${itemId}`);
+};
+
 // 更新购物车中商品数量
 export const updateCartItem = (itemId, quantity) => {
   return axiosInstance.put(`/cart/items/${itemId}`, {

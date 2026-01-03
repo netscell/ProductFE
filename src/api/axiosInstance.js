@@ -27,7 +27,7 @@ axiosInstance.interceptors.request.use(
 // 响应拦截器
 axiosInstance.interceptors.response.use(
   response => {
-    return response.data;
+    return response; // 返回完整的response对象
   },
   error => {
     if (error.response && error.response.status === 401) {

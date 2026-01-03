@@ -1,4 +1,6 @@
-import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Link, Navigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
 import './App.css';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -6,113 +8,170 @@ import CategoryManagement from './components/CategoryManagement';
 import ProductAdd from './components/ProductAdd';
 import ProductList from './components/ProductList';
 import Cart from './components/Cart';
+import ProductManagement from './components/ProductManagement';
 
-function App() {
-  // 检查用户是否已登录
-  const isLoggedIn = () => {
-    return localStorage.getItem('token') !== null;
-  };
+// 受保护路由组件
+const ProtectedRoute = ({ children }) => {
+  const [isAuthenticated, setIsAuthenticated] = useState(null);
 
-  // 受保护的路由组件
-  const ProtectedRoute = ({ children }) => {
-    return isLoggedIn() ? children : <Navigate to="/login" />;
-  };
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // 使用axiosInstance验证token有效性
+      setIsAuthenticated(true)
+    } else {
+      setIsAuthenticated(false);
+    }
+  }, []);
 
-  // 退出登录
+  if (isAuthenticated === null) {
+    return <div className="loading"><div className="loading-spinner"></div></div>;
+  }
+
+  return isAuthenticated ? children : <Navigate to="/login" />;
+};
+
+// 导航栏组件
+const Navigation = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    setIsAuthenticated(!!token);
+  }, [location]);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.href = '/login';
+    setIsAuthenticated(false);
   };
 
   return (
-    <Router>
-      <div className="App">
-        {/* 导航栏 */}
-        <header style={{ backgroundColor: '#333', color: 'white', padding: '10px 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <h1 style={{ margin: 0, fontSize: '24px' }}>产品管理系统</h1>
-            </div>
-            <nav>
-              <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex' }}>
-                {isLoggedIn() ? (
-                  <>
-                    <li style={{ margin: '0 10px' }}>
-                      <Link to="/" style={{ color: 'white', textDecoration: 'none' }}>首页</Link>
-                    </li>
-                    <li style={{ margin: '0 10px' }}>
-                      <Link to="/products" style={{ color: 'white', textDecoration: 'none' }}>产品清单</Link>
-                    </li>
-                    <li style={{ margin: '0 10px' }}>
-                      <Link to="/categories" style={{ color: 'white', textDecoration: 'none' }}>分类管理</Link>
-                    </li>
-                    <li style={{ margin: '0 10px' }}>
-                      <Link to="/products/add" style={{ color: 'white', textDecoration: 'none' }}>添加产品</Link>
-                    </li>
-                    <li style={{ margin: '0 10px' }}>
-                      <Link to="/cart" style={{ color: 'white', textDecoration: 'none' }}>购物车</Link>
-                    </li>
-                    <li style={{ margin: '0 10px' }}>
-                      <button onClick={handleLogout} style={{ backgroundColor: 'transparent', border: 'none', color: 'white', cursor: 'pointer' }}>退出登录</button>
-                    </li>
-                  </>
-                ) : (
-                  <>
-                    <li style={{ margin: '0 10px' }}>
-                      <Link to="/login" style={{ color: 'white', textDecoration: 'none' }}>登录</Link>
-                    </li>
-                    <li style={{ margin: '0 10px' }}>
-                      <Link to="/register" style={{ color: 'white', textDecoration: 'none' }}>注册</Link>
-                    </li>
-                  </>
-                )}
+    <header className="header">
+      <div className="header-content">
+        <Link to="/" className="logo">产品管理系统</Link>
+        <nav className="nav">
+          {isAuthenticated ? (
+            <>
+              <ul className="nav-list">
+                <li>
+                  <Link
+                    to="/"
+                    className={`nav-link ${location.pathname === '/' ? 'active' : ''}`}
+                  >
+                    首页
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/categories"
+                    className={`nav-link ${location.pathname === '/categories' ? 'active' : ''}`}
+                  >
+                    分类管理
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/products"
+                    className={`nav-link ${location.pathname === '/products' ? 'active' : ''}`}
+                  >
+                    产品清单
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/add-product"
+                    className={`nav-link ${location.pathname === '/add-product' ? 'active' : ''}`}
+                  >
+                    添加产品
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/product-management"
+                    className={`nav-link ${location.pathname === '/product-management' ? 'active' : ''}`}
+                  >
+                    产品管理
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/cart"
+                    className={`nav-link ${location.pathname === '/cart' ? 'active' : ''}`}
+                  >
+                    购物车
+                  </Link>
+                </li>
               </ul>
-            </nav>
-          </div>
-        </header>
-
-        {/* 主要内容 */}
-        <main style={{ padding: '20px' }}>
-          <Routes>
-            {/* 公开路由 */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            
-            {/* 受保护路由 */}
-            <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
-            <Route path="/products" element={<ProtectedRoute><ProductList /></ProtectedRoute>} />
-            <Route path="/categories" element={<ProtectedRoute><CategoryManagement /></ProtectedRoute>} />
-            <Route path="/products/add" element={<ProtectedRoute><ProductAdd /></ProtectedRoute>} />
-            <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-            
-            {/* 默认路由 */}
-            <Route path="*" element={<Navigate to={isLoggedIn() ? '/' : '/login'} />} />
-          </Routes>
-        </main>
+              <button onClick={handleLogout} className="btn btn-outline btn-sm">退出登录</button>
+            </>
+          ) : (
+            <ul className="nav-list">
+              <li>
+                <Link
+                  to="/login"
+                  className={`nav-link ${location.pathname === '/login' ? 'active' : ''}`}
+                >
+                  登录
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/register"
+                  className={`nav-link ${location.pathname === '/register' ? 'active' : ''}`}
+                >
+                  注册
+                </Link>
+              </li>
+            </ul>
+          )}
+        </nav>
       </div>
-    </Router>
+    </header>
   );
-}
+};
 
 // 首页组件
 const Home = () => {
   return (
-    <div style={{ textAlign: 'center', padding: '50px 20px' }}>
-      <h2>欢迎使用产品管理系统</h2>
-      <p style={{ fontSize: '18px', color: '#666' }}>
-        这是一个功能完整的产品管理系统，包含用户认证、商品分类管理和产品添加功能。
-      </p>
-      <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'center', gap: '20px' }}>
-        <Link to="/categories" style={{ padding: '15px 30px', backgroundColor: '#007bff', color: 'white', textDecoration: 'none', borderRadius: '5px' }}>
-          管理分类
-        </Link>
-        <Link to="/products/add" style={{ padding: '15px 30px', backgroundColor: '#28a745', color: 'white', textDecoration: 'none', borderRadius: '5px' }}>
-          添加产品
-        </Link>
+    <div className="page-container">
+      <div className="card">
+        <div className="card-header">
+          <h1 className="card-title">欢迎使用产品管理系统</h1>
+        </div>
+        <div className="card-body">
+          <p>这是一个功能完整的产品管理系统，包括用户认证、分类管理、产品管理和购物车功能。</p>
+          <p>请使用导航栏访问各个功能模块。</p>
+        </div>
       </div>
     </div>
   );
 };
+
+function App() {
+  return (
+    <Router>
+      <Navigation />
+      <div className="page-container">
+        <Routes>
+          {/* 公共路由 */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+
+          {/* 受保护路由 */}
+          <Route path="/" element={<ProtectedRoute><Home /></ProtectedRoute>} />
+          <Route path="/categories" element={<ProtectedRoute><CategoryManagement /></ProtectedRoute>} />
+          <Route path="/add-product" element={<ProtectedRoute><ProductAdd /></ProtectedRoute>} />
+          <Route path="/product-management" element={<ProtectedRoute><ProductManagement /></ProtectedRoute>} />
+          <Route path="/products" element={<ProtectedRoute><ProductList /></ProtectedRoute>} />
+          <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+
+          {/* 404路由 */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
 
 export default App;

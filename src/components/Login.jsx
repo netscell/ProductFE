@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { login } from '../api/auth';
 
 const Login = () => {
   const [formData, setFormData] = useState({
     username: '',
     password: '',
-    
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -16,6 +15,7 @@ const Login = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  // Login.jsx中的handleSubmit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -23,52 +23,62 @@ const Login = () => {
     try {
       const response = await login(formData);
       // 保存token和用户信息
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(response.user));
+      localStorage.setItem('token', response.data.token);
+      localStorage.setItem('user', JSON.stringify(response.data.user));
       // 跳转到首页
       navigate('/');
     } catch (err) {
       setError(err.response?.data?.message || '登录失败，请检查用户名和密码');
     }
   };
+  
+ 
 
   return (
-    <div style={{ maxWidth: '400px', margin: '0 auto', padding: '20px' }}>
-      <h2>登录</h2>
-      {error && <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>}
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '15px' }}>
-          <label>用户名：</label>
-          <input
-            type="text"
-            name="username"
-            value={formData.username}
-            onChange={handleChange}
-            required
-            style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-          />
+    <div className="page-container" style={{ maxWidth: '400px' }}>
+      <div className="card">
+        <div className="card-header">
+          <h2 className="card-title">登录</h2>
         </div>
-        <div style={{ marginBottom: '15px' }}>
-          <label>密码：</label>
-          <input
-            type="password"
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            required
-            style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-          />
+        <div className="card-body">
+          {error && <div className="alert alert-error">{error}</div>}
+          <form onSubmit={handleSubmit} className="form">
+            <div className="form-group">
+              <label htmlFor="username" className="form-label">用户名</label>
+              <input
+                type="text"
+                id="username"
+                name="username"
+                value={formData.username}
+                onChange={handleChange}
+                required
+                className="form-control"
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="password" className="form-label">密码</label>
+              <input
+                type="password"
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                required
+                className="form-control"
+              />
+            </div>
+            <button 
+              type="submit" 
+              className="btn btn-primary w-full"
+            >
+              登录
+            </button>
+          </form>
+          <p style={{ marginTop: 'var(--spacing-lg)', textAlign: 'center' }}>
+            还没有账号？<Link to="/register">立即注册</Link>
+          </p>
         </div>
-        <button 
-          type="submit" 
-          style={{ width: '100%', padding: '10px', backgroundColor: '#007bff', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          登录
-        </button>
-      </form>
-      <p style={{ marginTop: '15px' }}>
-        还没有账号？<a href="/register">立即注册</a>
-      </p>
+      </div>
     </div>
   );
 };

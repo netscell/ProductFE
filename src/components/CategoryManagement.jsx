@@ -24,7 +24,8 @@ const CategoryManagement = () => {
   const fetchCategories = async () => {
     try {
       const data = await getAllCategories();
-      setCategories(data);
+      console.log('获取分类成功:', JSON.stringify(data.data));
+      setCategories(data.data || []);
     } catch (err) {
       console.error('获取分类失败:', err);
     }
@@ -115,16 +116,16 @@ const CategoryManagement = () => {
   // 获取指定级别的父分类
   const getParentCategories = (level) => {
     if (level === 1) return [];
-    if (level === 2) return categories.filter(cat => cat.level === 1);
-    if (level === 3) return categories.filter(cat => cat.level === 2);
+    if (level === 2) return categories.map(x => ({ id: x.id, name: x.name }));// categories.filter(cat => cat.level === 1);
+    if (level === 3) return categories.flatMap(x => x.subCategories || []); //categories.filter(cat => cat.level === 2);
     return [];
   };
 
   // 按级别分组显示分类
   const renderCategoriesByLevel = () => {
-    const level1 = categories.filter(cat => cat.level === 1);
-    const level2 = categories.filter(cat => cat.level === 2);
-    const level3 = categories.filter(cat => cat.level === 3);
+    const level1 = categories.map(x => ({ id: x.id, name: x.name }));//filter(cat => cat.level === 1);
+    const level2 = categories.flatMap(x => x.subCategories || []);//filter(cat => cat.level === 2);
+    const level3 = categories.flatMap(x => x.subCategories || []).flatMap(x => x.specifications || []);//filter(cat => cat.level === 3);
 
     return (
       <div>
