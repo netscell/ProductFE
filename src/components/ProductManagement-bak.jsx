@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { getAllProducts, getProduct, updateProduct, deleteProduct, uploadImages } from '../api/product';
 import { getAllCategories } from '../api/category';
-import { getAllPromotions, addPromotionToProduct } from '../api/promotion';
 
 const ProductManagement = () => {
   // 产品列表状态
@@ -37,18 +36,9 @@ const ProductManagement = () => {
     quantity: 0,
     categoryIds: [], // 将categoryId改为categoryIds数组
     images: [], // 存储图片文件
-    imageUrls: [], // 存储上传后的图片地址,
-    promotionNames: [] // 促销name数组
+    imageUrls: [] // 存储上传后的图片地址
   });
   const [previewImages, setPreviewImages] = useState([]); // 预览图片数组
-
-  // 促销相关状态
-  const [promotions, setPromotions] = useState([]);
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [selectedPromotions, setSelectedPromotions] = useState([]);
-  const [showPromotionModal, setShowPromotionModal] = useState(false);
-  const [promotionStartTime, setPromotionStartTime] = useState('');
-  const [promotionEndTime, setPromotionEndTime] = useState('');
 
   // 获取所有产品
   useEffect(() => {
@@ -58,11 +48,6 @@ const ProductManagement = () => {
   // 获取所有分类
   useEffect(() => {
     fetchCategories();
-  }, []);
-
-  // 获取所有促销
-  useEffect(() => {
-    fetchPromotions();
   }, []);
 
   // 清理预览图片URL，避免内存泄漏
@@ -108,16 +93,6 @@ const ProductManagement = () => {
     }
   };
 
-  // 获取所有促销
-  const fetchPromotions = async () => {
-    try {
-      const response = await getAllPromotions();
-      setPromotions(response.data || []);
-    } catch (err) {
-      console.error('获取促销列表失败:', err);
-    }
-  };
-
   // 处理分页变化
   const handlePageChange = (page) => {
     if (page > 0 && page <= totalPages) {
@@ -145,7 +120,6 @@ const ProductManagement = () => {
       setLoading(true);
       const response = await getProduct(productId);
       const product = response.data;
-      console.log('product', product);
       setEditingProduct(product);
       
       // 填充表单数据
@@ -156,8 +130,7 @@ const ProductManagement = () => {
         quantity: product.quantityInStock || 0,
         categoryIds: product.specificationIds || [],
         images: [],
-        imageUrls: product.imageUrls || [],
-        promotionNames: product.promotions || [] // 促销name数组
+        imageUrls: product.imageUrls || []
       });
       
       // 设置预览图片
@@ -187,8 +160,7 @@ const ProductManagement = () => {
       quantity: 0,
       categoryIds: [],
       images: [],
-      imageUrls: [],
-      promotionNames: [] // 促销name数组
+      imageUrls: []
     });
     setPreviewImages([]);
     setSelectedLevel1('');
@@ -323,75 +295,6 @@ const ProductManagement = () => {
     }
   };
 
-  // 打开促销选择模态框
-  const openPromotionModal = (product) => {
-    setSelectedProduct(product);
-    setSelectedPromotions([]);
-    setPromotionStartTime('');
-    setPromotionEndTime('');
-    setShowPromotionModal(true);
-  };
-
-  // 关闭促销选择模态框
-  const closePromotionModal = () => {
-    setShowPromotionModal(false);
-    setSelectedProduct(null);
-    setSelectedPromotions([]);
-    setPromotionStartTime('');
-    setPromotionEndTime('');
-  };
-
-  // 处理促销选择变化
-  const handlePromotionChange = (e) => {
-    const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
-    setSelectedPromotions(selectedOptions);
-  };
-
-  // 提交促销
-  const submitPromotions = async () => {
-    if (!selectedProduct || selectedPromotions.length === 0) {
-      setMessage('请选择至少一个促销');
-      return;
-    }
-
-    if (!promotionStartTime) {
-      setMessage('请选择促销开始时间');
-      return;
-    }
-
-    if (!promotionEndTime) {
-      setMessage('请选择促销结束时间');
-      return;
-    }
-
-    if (new Date(promotionStartTime) >= new Date(promotionEndTime)) {
-      setMessage('促销结束时间必须晚于开始时间');
-      return;
-    }
-
-    try {
-      // 为每个选择的促销调用API
-      for (const promotionId of selectedPromotions) {
-
-      }
-
-      // 当前提交一个促销
-      await addPromotionToProduct({
-          productId: selectedProduct.id,
-          promotionId: selectedPromotions[0],
-          startDate: promotionStartTime,
-          endDate: promotionEndTime
-        });
-
-      setMessage('促销添加成功');
-      closePromotionModal();
-      fetchProducts(); // 刷新产品列表
-    } catch (err) {
-      setMessage('促销添加失败: ' + (err.response?.data?.message || err.message));
-      console.error('添加促销失败:', err);
-    }
-  };
-
   if (loading) {
     return <div className="loading"><div className="loading-spinner"></div></div>;
   }
@@ -475,21 +378,7 @@ const ProductManagement = () => {
                         className="form-control"
                       />
                     </div>
-
-                    <div className="form-group">
-                      <label htmlFor="promotion" className="form-label">促销</label>
-                      <input
-                        type="text"
-                        id="promotion"
-                        name="promotionNames"
-                        value={formData.promotionNames.join(', ')}
-                        onChange={handleChange}
-                        required
-                        min="0"
-                        className="form-control"
-                      />
-                    </div>
-
+                    
                     <div className="form-group">
                       <label className="form-label">产品分类</label>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -646,7 +535,8 @@ const ProductManagement = () => {
                     <div key={product.id} className="card">
                       <div className="card-body">
                         <img 
-                          src={`http://localhost:5192/api/file/view/${product.imageUrls?.[0]}`}
+                        src = {`http://localhost:5192/api/file/view/${product.imageUrls?.[0] }`}
+                          //src={product.imageUrls?.[0] || product.imageUrl || 'https://via.placeholder.com/200'} 
                           alt={product.name} 
                           className="img-responsive img-preview mb-3"
                           style={{ height: '150px', objectFit: 'cover', borderRadius: 'var(--border-radius)' }}
@@ -665,7 +555,7 @@ const ProductManagement = () => {
                             库存: {product.quantityInStock || 0}
                           </span>
                         </div>
-                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
                           <button 
                             onClick={() => handleEditProduct(product.id)}
                             className="btn btn-secondary w-full"
@@ -677,14 +567,6 @@ const ProductManagement = () => {
                             className="btn btn-danger w-full"
                           >
                             删除
-                          </button>
-                        </div>
-                        <div style={{ marginTop: 'var(--spacing-xs)' }}>
-                          <button 
-                            onClick={() => openPromotionModal(product)}
-                            className="btn btn-primary w-full"
-                          >
-                            添加促销
                           </button>
                         </div>
                       </div>
@@ -753,80 +635,6 @@ const ProductManagement = () => {
           </div>
         )}
       </div>
-
-      {/* 促销选择模态框 */}
-      {showPromotionModal && selectedProduct && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h3 className="modal-title">为产品添加促销</h3>
-              <button 
-                className="modal-close" 
-                onClick={closePromotionModal}
-              >
-                ×
-              </button>
-            </div>
-            <div className="modal-body">
-              <h4>{selectedProduct.name}</h4>
-              <div className="form-group">
-                <label className="form-label">选择促销</label>
-                <select
-                  multiple
-                  value={selectedPromotions}
-                  onChange={handlePromotionChange}
-                  className="form-control"
-                  style={{ minHeight: '150px' }}
-                >
-                  {promotions.map(promotion => (
-                    <option key={promotion.id} value={promotion.id}>
-                      {promotion.name} - {promotion.description}
-                    </option>
-                  ))}
-                </select>
-                <small className="form-text" style={{ marginTop: 'var(--spacing-xs)' }}>
-                  提示：按住Ctrl键（Windows）或Command键（Mac）可选择多个促销
-                </small>
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">促销开始时间</label>
-                <input
-                  type="datetime-local"
-                  value={promotionStartTime}
-                  onChange={(e) => setPromotionStartTime(e.target.value)}
-                  className="form-control"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">促销结束时间</label>
-                <input
-                  type="datetime-local"
-                  value={promotionEndTime}
-                  onChange={(e) => setPromotionEndTime(e.target.value)}
-                  className="form-control"
-                />
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button 
-                className="btn btn-primary"
-                onClick={submitPromotions}
-              >
-                确认添加
-              </button>
-              <button 
-                className="btn btn-secondary"
-                onClick={closePromotionModal}
-                style={{ marginLeft: 'var(--spacing-sm)' }}
-              >
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

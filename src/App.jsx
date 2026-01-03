@@ -32,6 +32,11 @@ const ProtectedRoute = ({ children }) => {
 };
 
 // 导航栏组件
+// 导入促销组件
+import PromotionTypeManagement from './components/PromotionTypeManagement';
+import PromotionManagement from './components/PromotionManagement';
+
+// 在导航栏中添加促销相关链接
 const Navigation = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const location = useLocation();
@@ -102,6 +107,22 @@ const Navigation = () => {
                     购物车
                   </Link>
                 </li>
+                <li>
+                  <Link
+                    to="/promotion-types"
+                    className={`nav-link ${location.pathname === '/promotion-types' ? 'active' : ''}`}
+                  >
+                    促销类型管理
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/promotions"
+                    className={`nav-link ${location.pathname === '/promotions' ? 'active' : ''}`}
+                  >
+                    促销管理
+                  </Link>
+                </li>
               </ul>
               <button onClick={handleLogout} className="btn btn-outline btn-sm">退出登录</button>
             </>
@@ -148,6 +169,7 @@ const Home = () => {
   );
 };
 
+// 在Routes中添加促销相关路由
 function App() {
   return (
     <Router>
@@ -165,7 +187,9 @@ function App() {
           <Route path="/product-management" element={<ProtectedRoute><ProductManagement /></ProtectedRoute>} />
           <Route path="/products" element={<ProtectedRoute><ProductList /></ProtectedRoute>} />
           <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-
+          <Route path="/promotion-types" element={<ProtectedRoute><PromotionTypeManagement /></ProtectedRoute>} />
+          <Route path="/promotions" element={<ProtectedRoute><PromotionManagement /></ProtectedRoute>} />
+          
           {/* 404路由 */}
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
