@@ -16,6 +16,7 @@ const Cart = () => {
       setLoading(true);
       const response = await getCart();
       setCartItems(response.data);
+      console.log("购物车内容:", response.data);
       setError(null);
     } catch (err) {
       setError('获取购物车失败，请稍后重试');
@@ -59,7 +60,16 @@ const Cart = () => {
   };
 
   const calculateTotal = () => {
-    return cartItems.reduce((total, item) => total + (item.product.price * item.quantity), 0);
+    /**
+ * 计算购物车中商品项的总价
+ * @param {number} total - 当前累计总价
+ * @param {Object} item - 购物车中的商品项
+ * @param {Object} item.product - 商品信息
+ * @param {number} item.product.price - 商品单价
+ * @param {number} item.quantity - 商品数量
+ * @returns {number} 更新后的累计总价
+ */
+return cartItems.items?.reduce((total, item) => total + (item.unitPrice * item.quantity), 0);
   };
 
   if (loading) {
@@ -76,15 +86,15 @@ const Cart = () => {
         <div className="card-header">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
             <h2 className="card-title">购物车</h2>
-            {cartItems.length > 0 && (
-              <button onClick={handleClearCart} className="btn btn-danger btn-sm">
+            {cartItems.items?.length > 0 && (
+              <button onClick={() => handleClearCart()} className="btn btn-danger btn-sm">
                 清空购物车
               </button>
             )}
           </div>
         </div>
         <div className="card-body">
-          {cartItems.length === 0 ? (
+          {cartItems.items?.length === 0 ? (
             <div className="empty-state">
               <h3>购物车是空的</h3>
               <p>快去添加一些商品吧！</p>
@@ -103,26 +113,26 @@ const Cart = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {cartItems.map(item => (
+                    {cartItems.items?.map(item => (
                       <tr key={item.id}>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
                             <img 
-                              src={item.product.imageUrl || 'https://via.placeholder.com/80'} 
-                              alt={item.product.name} 
+                            src={`http://localhost:5192/api/file/view/${item.images[0]}`}                               
+                              alt={item.productName} 
                               style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: 'var(--border-radius)' }}
                             />
                             <div>
                               <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 600 }}>
-                                {item.product.name}
+                                {item.productName}
                               </h4>
                               <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                {item.product.description?.substring(0, 30)}...
+                                {item.description?.substring(0, 30)}...
                               </p>
                             </div>
                           </div>
                         </td>
-                        <td>¥{item.product.price.toFixed(2)}</td>
+                        <td>¥{item.unitPrice.toFixed(2)}</td>
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-sm)' }}>
                             <button 
@@ -142,7 +152,7 @@ const Cart = () => {
                             </button>
                           </div>
                         </td>
-                        <td style={{ fontWeight: 600 }}>¥{(item.product.price * item.quantity).toFixed(2)}</td>
+                        <td style={{ fontWeight: 600 }}>¥{(item.unitPrice * item.quantity).toFixed(2)}</td>
                         <td>
                           <button 
                             onClick={() => handleDeleteItem(item.id)}
