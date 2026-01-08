@@ -16,14 +16,26 @@ export const uploadImages = (files) => {
   files.forEach(file => {
     formData.append('images', file);
   });
-  
+
   return axiosInstance.post('/file/upload/multi', formData,
     {
     headers: {
       'Content-Type': 'multipart/form-data'
     }
-  } 
+  }
  );
+};
+
+// 上传产品规格明细Excel文件
+export const uploadSpecificationExcel = (file) => {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  return axiosInstance.post('/file/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  });
 };
 
 // 添加产品

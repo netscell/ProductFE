@@ -118,7 +118,7 @@ return cartItems.items?.reduce((total, item) => total + (item.unitPrice * item.q
                         <td>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
                             <img 
-                            src={`http://localhost:5192/api/file/view/${item.images[0]}`}                               
+                            src={`http://localhost:5192/api/file/view/${item.images?.[0]}`}                               
                               alt={item.productName} 
                               style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: 'var(--border-radius)' }}
                             />

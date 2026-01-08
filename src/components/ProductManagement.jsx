@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getAllProducts, getProduct, updateProduct, deleteProduct, uploadImages } from '../api/product';
 import { getAllCategories } from '../api/category';
 import { getAllPromotions, addPromotionToProduct } from '../api/promotion';
 
 const ProductManagement = () => {
+  const navigate = useNavigate();
+
   // 产品列表状态
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -645,34 +648,46 @@ const ProductManagement = () => {
                   {products.map(product => (
                     <div key={product.id} className="card">
                       <div className="card-body">
-                        <img 
-                          src={`http://localhost:5192/api/file/view/${product.imageUrls?.[0]}`}
-                          alt={product.name} 
-                          className="img-responsive img-preview mb-3"
-                          style={{ height: '150px', objectFit: 'cover', borderRadius: 'var(--border-radius)' }}
-                        />
-                        <h3 style={{ fontSize: '1.1rem', marginBottom: 'var(--spacing-sm)', fontWeight: 600 }}>
-                          {product.name}
-                        </h3>
-                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 'var(--spacing-md)' }}>
-                          {product.description?.substring(0, 50)}...
-                        </p>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
-                          <span style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--primary-color)' }}>
-                            ¥{product.unitPrice?.toFixed(2) || product.price?.toFixed(2)}
-                          </span>
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            库存: {product.quantityInStock || 0}
-                          </span>
+                        <div
+                          onClick={() => navigate(`/product/${product.id}`)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <img
+                            src={`http://localhost:5192/api/file/view/${product.imageUrls?.[0]}`}
+                            alt={product.name}
+                            className="img-responsive img-preview mb-3"
+                            style={{
+                              height: '150px',
+                              objectFit: 'cover',
+                              borderRadius: 'var(--border-radius)',
+                              transition: 'transform 0.2s'
+                            }}
+                            onMouseEnter={(e) => e.target.style.transform = 'scale(1.05)'}
+                            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+                          />
+                          <h3 style={{ fontSize: '1.1rem', marginBottom: 'var(--spacing-sm)', fontWeight: 600 }}>
+                            {product.name}
+                          </h3>
+                          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 'var(--spacing-md)' }}>
+                            {product.description?.substring(0, 50)}...
+                          </p>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--spacing-md)' }}>
+                            <span style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--primary-color)' }}>
+                              ¥{product.unitPrice?.toFixed(2) || product.price?.toFixed(2)}
+                            </span>
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                              库存: {product.quantityInStock || 0}
+                            </span>
+                          </div>
                         </div>
                         <div style={{ display: 'flex', gap: 'var(--spacing-xs)', marginBottom: 'var(--spacing-xs)' }}>
-                          <button 
+                          <button
                             onClick={() => handleEditProduct(product.id)}
                             className="btn btn-secondary w-full"
                           >
                             编辑
                           </button>
-                          <button 
+                          <button
                             onClick={() => handleDeleteProduct(product.id)}
                             className="btn btn-danger w-full"
                           >
@@ -680,7 +695,7 @@ const ProductManagement = () => {
                           </button>
                         </div>
                         <div style={{ marginTop: 'var(--spacing-xs)' }}>
-                          <button 
+                          <button
                             onClick={() => openPromotionModal(product)}
                             className="btn btn-primary w-full"
                           >

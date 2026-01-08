@@ -9,6 +9,7 @@ import ProductAdd from './components/ProductAdd';
 import ProductList from './components/ProductList';
 import Cart from './components/Cart';
 import ProductManagement from './components/ProductManagement';
+import ProductDetail from './components/ProductDetail';
 
 // 受保护路由组件
 const ProtectedRoute = ({ children }) => {
@@ -186,6 +187,7 @@ function App() {
           <Route path="/add-product" element={<ProtectedRoute><ProductAdd /></ProtectedRoute>} />
           <Route path="/product-management" element={<ProtectedRoute><ProductManagement /></ProtectedRoute>} />
           <Route path="/products" element={<ProtectedRoute><ProductList /></ProtectedRoute>} />
+          <Route path="/product/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
           <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
           <Route path="/promotion-types" element={<ProtectedRoute><PromotionTypeManagement /></ProtectedRoute>} />
           <Route path="/promotions" element={<ProtectedRoute><PromotionManagement /></ProtectedRoute>} />

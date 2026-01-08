@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { addProduct, uploadImages } from '../api/product';
+import { addProduct, uploadImages, uploadSpecificationExcel } from '../api/product';
 import { getAllCategories } from '../api/category';
 
 const ProductAdd = () => {
@@ -21,11 +21,13 @@ const ProductAdd = () => {
     quantity: 0,
     categoryIds: [], // 将categoryId改为categoryIds数组
     images: [], // 存储图片文件
-    imageUrls: [] // 存储上传后的图片地址
+    imageUrls: [], // 存储上传后的图片地址
+    specificationFile: null // 存储规格明细Excel文件
   });
   const [previewImages, setPreviewImages] = useState([]); // 预览图片数组
   const [message, setMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [excelFileName, setExcelFileName] = useState(''); // Excel文件名显示
 
   // 获取所有分类
   useEffect(() => {
@@ -117,47 +119,86 @@ const ProductAdd = () => {
   const removePreviewImage = (index) => {
     // 释放预览图片URL
     URL.revokeObjectURL(previewImages[index]);
-    
+
     // 更新预览图片数组
     setPreviewImages(prev => prev.filter((_, i) => i !== index));
-    
+
     // 更新图片文件数组
-    setFormData(prev => ({ 
-      ...prev, 
-      images: prev.images.filter((_, i) => i !== index) 
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
     }));
+  };
+
+  // 处理Excel文件上传
+  const handleExcelChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // 验证文件类型
+      const allowedTypes = [
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.ms-excel' // .xls
+      ];
+      const fileExtension = file.name.split('.').pop().toLowerCase();
+
+      if (!allowedTypes.includes(file.type) && !['xlsx', 'xls'].includes(fileExtension)) {
+        setMessage('请上传Excel文件（.xlsx 或 .xls格式）');
+        return;
+      }
+
+      setFormData(prev => ({ ...prev, specificationFile: file }));
+      setExcelFileName(file.name);
+    }
+  };
+
+  // 删除Excel文件
+  const removeExcelFile = () => {
+    setFormData(prev => ({ ...prev, specificationFile: null }));
+    setExcelFileName('');
   };
 
   // 添加产品
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage('');
-    
+
     // 验证是否选择了分类
     if (!formData.categoryIds || formData.categoryIds.length === 0) {
       setMessage('请至少选择一个三级分类');
       return;
     }
-    
+
     // 验证是否选择了图片
     if (!formData.images || formData.images.length === 0) {
       setMessage('请至少选择一张图片');
       return;
     }
-    
+
     try {
       setIsUploading(true);
-      
+
       // 第一步：上传图片
       const uploadResponse = await uploadImages(formData.images);
       const imageUrls = uploadResponse.data.files || [];
-      
+
       if (imageUrls.length === 0) {
         setMessage('图片上传失败');
         return;
       }
-      
-      // 第二步：添加产品
+
+      // 第二步：如果有Excel文件，上传规格明细
+      let specificationUrl = null;
+      if (formData.specificationFile) {
+        try {
+          const excelResponse = await uploadSpecificationExcel(formData.specificationFile);
+          specificationUrl = excelResponse.data.fileName;
+        } catch (excelErr) {
+          setMessage('Excel文件上传失败: ' + (excelErr.response?.data?.message || excelErr.message));
+          return;
+        }
+      }
+
+      // 第三步：添加产品
       const productData = {
         name: formData.name,
         UnitPrice: formData.UnitPrice,
@@ -166,11 +207,16 @@ const ProductAdd = () => {
         SpecificationIds: formData.categoryIds,
         ImageUrls: imageUrls
       };
-      
+
+      // 如果有规格明细文件，添加到产品数据中
+      if (specificationUrl) {
+        productData.SpecificationExcelUrl = specificationUrl;
+      }
+
       await addProduct(productData);
-      
+
       setMessage('产品添加成功');
-      
+
       // 重置表单
       setFormData({
         name: '',
@@ -178,15 +224,17 @@ const ProductAdd = () => {
         description: '',
         categoryIds: [],
         images: [],
-        imageUrls: []
+        imageUrls: [],
+        specificationFile: null
       });
-      
+      setExcelFileName('');
+
       // 重置预览图片
       previewImages.forEach(preview => {
         URL.revokeObjectURL(preview);
       });
       setPreviewImages([]);
-      
+
       // 重置分类选择
       setSelectedLevel1('');
       setSelectedLevel2('');
@@ -390,10 +438,58 @@ const ProductAdd = () => {
                 </div>
               )}
             </div>
-            
+
+            {/* 产品规格明细Excel上传 */}
+            <div className="form-group">
+              <label htmlFor="excel" className="form-label">产品规格明细</label>
+              <input
+                type="file"
+                id="excel"
+                name="excel"
+                onChange={handleExcelChange}
+                accept=".xlsx,.xls"
+                className="form-control"
+              />
+              <small className="form-text" style={{ marginTop: 'var(--spacing-xs)' }}>
+                提示：请上传产品规格明细Excel文件（可选）
+              </small>
+
+              {/* 显示已选择的Excel文件 */}
+              {excelFileName && (
+                <div style={{
+                  marginTop: 'var(--spacing-sm)',
+                  padding: 'var(--spacing-sm)',
+                  backgroundColor: 'var(--color-light)',
+                  borderRadius: 'var(--border-radius)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span style={{ fontSize: '0.9rem' }}>
+                    📄 {excelFileName}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={removeExcelFile}
+                    style={{
+                      padding: '4px 12px',
+                      backgroundColor: 'var(--color-danger)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '0.8rem'
+                    }}
+                  >
+                    删除
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="card-footer">
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className="btn btn-primary"
                 disabled={isUploading}
               >
