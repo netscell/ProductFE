@@ -23,7 +23,10 @@ const ProductDetail = () => {
     try {
       setLoading(true);
       const response = await getProduct(id);
-      setProduct(response.data);
+      const specs = JSON.parse(response.data.specs);
+      setProduct({ ...response.data, specs });
+      console.log('产品详情specs:', response.data.specs);
+      console.log('typeof spec:', typeof response.data.specs)
       setError(null);
     } catch (err) {
       setError('获取产品详情失败');
@@ -374,7 +377,10 @@ const ProductDetail = () => {
                         border: '1px solid var(--border-color)',
                         backgroundColor: 'var(--color-light)',
                         cursor: quantity <= 1 ? 'not-allowed' : 'pointer',
-                        fontSize: '1.5rem'
+                        fontSize: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                       }}
                     >
                       -
@@ -404,7 +410,10 @@ const ProductDetail = () => {
                         border: '1px solid var(--border-color)',
                         backgroundColor: 'var(--color-light)',
                         cursor: quantity >= product.quantityInStock ? 'not-allowed' : 'pointer',
-                        fontSize: '1.5rem'
+                        fontSize: '1.5rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                       }}
                     >
                       +
@@ -494,54 +503,98 @@ const ProductDetail = () => {
               {activeTab === 'specifications' && (
                 <div>
                   <h3 style={{ marginBottom: '1rem' }}>规格明细</h3>
-                  {product.specificationExcelUrl ? (
-                    <div style={{
-                      padding: '1.5rem',
-                      backgroundColor: 'var(--color-light)',
-                      borderRadius: 'var(--border-radius)',
-                      textAlign: 'center'
-                    }}>
-                      <div style={{ marginBottom: '1rem' }}>
-                        <span style={{ fontSize: '3rem' }}>📊</span>
-                    </div>
-                      <p style={{ marginBottom: '1rem' }}>产品规格明细Excel文件</p>
-                      <a
-                        href={`http://localhost:5192/api/file/view/${product.specificationExcelUrl}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="btn btn-primary"
-                      >
-                        下载规格明细
-                      </a>
+
+                  {/* 规格明细列表 */}
+                  {product.specs && product.specs.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                      {product.specs.map((spec, index) => (
+                        <div
+                          key={index}
+                          style={{
+                            padding: '1.5rem',
+                            backgroundColor: 'var(--color-light)',
+                            borderRadius: 'var(--border-radius)',
+                            border: '1px solid var(--border-color)'
+                          }}
+                        >
+                          {/* 分类 */}
+                          <h4 style={{
+                            fontSize: '1.1rem',
+                            fontWeight: 700,
+                            marginBottom: '1rem',
+                            color: 'var(--primary-color)',
+                              borderBottom: '2px solid var(--primary-color)',
+                              paddingBottom: '0.5rem'
+                          }}>
+                            {spec.category}
+                          </h4>
+
+                          {/* 特性列表 */}
+                          {spec.features && spec.features.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                              {spec.features.map((feature, featureIndex) => (
+                                <div
+                                  key={featureIndex}
+                                  style={{
+                                    padding: '0.75rem',
+                                    backgroundColor: 'white',
+                                    borderRadius: 'var(--border-radius)',
+                                    borderLeft: '4px solid var(--primary-color)'
+                                  }}
+                                >
+                                  {/* 特性 */}
+                                  <div style={{
+                                    fontWeight: 600,
+                                    marginBottom: '0.25rem',
+                                    color: 'var(--text-primary)',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                    lineHeight: '1.6'
+                                  }}>
+                                    {feature.feature}
+                                  </div>
+
+                                  {/* 值 */}
+                                  <div style={{
+                                    marginBottom: '0.25rem',
+                                    color: 'var(--text-secondary)',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                    lineHeight: '1.6'
+                                  }}>
+                                    {feature.value}
+                                  </div>
+
+                                  {/* 备注 */}
+                                  {feature.remark && (
+                                    <div style={{
+                                      fontSize: '0.9rem',
+                                      color: 'var(--text-muted)',
+                                      fontStyle: 'italic',
+                                      whiteSpace: 'pre-wrap',
+                                      wordBreak: 'break-word',
+                                      lineHeight: '1.6'
+                                    }}>
+                                      {feature.remark}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p style={{ color: 'var(--text-muted)' }}>暂无特性信息</p>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   ) : (
-                    <p style={{ color: 'var(--text-muted)' }}>暂无规格明细文件</p>
-                  )}
-
-                  {/* 规格ID列表 */}
-                  {product.specificationIds && product.specificationIds.length > 0 && (
-                    <div style={{ marginTop: '1.5rem' }}>
-                      <h4 style={{ marginBottom: '0.5rem' }}>产品规格</h4>
-                      <div style={{
-                        display: 'flex',
-                        flexWrap: 'wrap',
-                        gap: '0.5rem'
-                      }}>
-                        {product.specificationIds.map((specId, index) => (
-                          <span
-                            key={index}
-                            style={{
-                              padding: '0.5rem 1rem',
-                              backgroundColor: 'var(--color-light)',
-                              borderRadius: '20px',
-                              fontSize: '0.9rem',
-                              color: 'var(--text-secondary)'
-                            }}
-                          >
-                            {specId}
-                          </span>
-                        ))}
-                      </div>
+                    <div style={{
+                      padding: '2rem',
+                      textAlign: 'center',
+                      backgroundColor: 'var(--color-light)',
+                      borderRadius: 'var(--border-radius)'
+                    }}>
+                      <p style={{ color: 'var(--text-muted)' }}>暂无规格明细</p>
                     </div>
                   )}
                 </div>

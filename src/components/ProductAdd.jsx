@@ -191,6 +191,7 @@ const ProductAdd = () => {
       if (formData.specificationFile) {
         try {
           const excelResponse = await uploadSpecificationExcel(formData.specificationFile);
+          console.log('excelResponse:', excelResponse);
           specificationUrl = excelResponse.data.fileName;
         } catch (excelErr) {
           setMessage('Excel文件上传失败: ' + (excelErr.response?.data?.message || excelErr.message));
@@ -210,7 +211,7 @@ const ProductAdd = () => {
 
       // 如果有规格明细文件，添加到产品数据中
       if (specificationUrl) {
-        productData.SpecificationExcelUrl = specificationUrl;
+        productData.SpecFilePath = specificationUrl;
       }
 
       await addProduct(productData);
