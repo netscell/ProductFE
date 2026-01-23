@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllProducts, getProduct, updateProduct, deleteProduct, uploadImages } from '../api/product';
+import { getAllProducts, getProduct, updateProduct, deleteProduct, uploadImages, getAllProductSkus, getProductSkus, addProductSku, updateProductSku, deleteProductSku } from '../api/product';
 import { getAllCategories } from '../api/category';
 import { getAllPromotions, addPromotionToProduct } from '../api/promotion';
 
@@ -52,6 +52,22 @@ const ProductManagement = () => {
   const [showPromotionModal, setShowPromotionModal] = useState(false);
   const [promotionStartTime, setPromotionStartTime] = useState('');
   const [promotionEndTime, setPromotionEndTime] = useState('');
+
+  // SKU相关状态
+  const [showSkuModal, setShowSkuModal] = useState(false);
+  const [skuProduct, setSkuProduct] = useState(null);
+  const [productSkus, setProductSkus] = useState([]);
+  const [editingSku, setEditingSku] = useState(null);
+  const [isEditingSku, setIsEditingSku] = useState(false);
+  const [skuFormData, setSkuFormData] = useState({
+    skuCode: '',
+    price: '',
+    stock: 0,
+    attributes: [], // [{ name: '颜色', value: '红色' }, { name: '尺寸', value: 'M' }]
+    image: null
+  });
+  const [newAttribute, setNewAttribute] = useState({ name: '', value: '' });
+  const [skuImagePreview, setSkuImagePreview] = useState(null);
 
   // 获取所有产品
   useEffect(() => {
@@ -395,6 +411,169 @@ const ProductManagement = () => {
     }
   };
 
+  // 打开SKU管理模态框
+  const openSkuModal = async (product) => {
+    setSkuProduct(product);
+    try {
+      const response = await getProductSkus(product.id);
+      setProductSkus(response.data || []);
+    } catch (err) {
+      console.error('获取SKU列表失败:', err);
+      setProductSkus([]);
+    }
+    setShowSkuModal(true);
+  };
+
+  // 关闭SKU管理模态框
+  const closeSkuModal = () => {
+    setShowSkuModal(false);
+    setSkuProduct(null);
+    setProductSkus([]);
+    resetSkuForm();
+  };
+
+  // 重置SKU表单
+  const resetSkuForm = () => {
+    setEditingSku(null);
+    setIsEditingSku(false);
+    setSkuFormData({
+      skuCode: '',
+      price: '',
+      stock: 0,
+      attributes: [],
+      image: null
+    });
+    setNewAttribute({ name: '', value: '' });
+    setSkuImagePreview(null);
+  };
+
+  // 添加属性
+  const addAttribute = () => {
+    if (newAttribute.name && newAttribute.value) {
+      setSkuFormData(prev => ({
+        ...prev,
+        attributes: [...prev.attributes, { ...newAttribute }]
+      }));
+      setNewAttribute({ name: '', value: '' });
+    }
+  };
+
+  // 删除属性
+  const removeAttribute = (index) => {
+    setSkuFormData(prev => ({
+      ...prev,
+      attributes: prev.attributes.filter((_, i) => i !== index)
+    }));
+  };
+
+  // 处理SKU表单变化
+  const handleSkuChange = (e) => {
+    const { name, value } = e.target;
+    setSkuFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  // 处理SKU图片上传
+  const handleSkuImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setSkuFormData(prev => ({ ...prev, image: file }));
+      // 创建预览
+      const preview = URL.createObjectURL(file);
+      setSkuImagePreview(preview);
+    }
+  };
+
+  // 删除SKU图片
+  const removeSkuImage = () => {
+    if (skuImagePreview) {
+      URL.revokeObjectURL(skuImagePreview);
+    }
+    setSkuFormData(prev => ({ ...prev, image: null }));
+    setSkuImagePreview(null);
+  };
+
+  // 开始编辑SKU
+  const handleEditSku = (sku) => {
+    setEditingSku(sku);
+    setIsEditingSku(true);
+    // 解析attributes字符串或使用已解析的数组
+    const attributes = typeof sku.attributes === 'string' ? JSON.parse(sku.attributes) : (sku.attributes || []);
+    setSkuFormData({
+      skuCode: sku.skuCode || '',
+      price: sku.price || sku.unitPrice || '',
+      stock: sku.stock || sku.quantityInStock || 0,
+      attributes: attributes,
+      image: null
+    });
+    // 设置图片预览
+    if (sku.imageUrl) {
+      setSkuImagePreview(`http://localhost:5192/api/file/view/${sku.imageUrl}`);
+    } else {
+      setSkuImagePreview(null);
+    }
+  };
+
+  // 取消编辑SKU
+  const handleCancelEditSku = () => {
+    resetSkuForm();
+  };
+
+  // 提交SKU
+  const submitSku = async () => {
+    if (!skuFormData.skuCode) {
+      setMessage('请输入SKU编码');
+      return;
+    }
+    if (!skuFormData.price) {
+      setMessage('请输入SKU价格');
+      return;
+    }
+
+    try {
+      const skuData = {
+        productId: skuProduct.id,
+        skuCode: skuFormData.skuCode,
+        unitPrice: parseFloat(skuFormData.price),
+        quantityInStock: parseInt(skuFormData.stock),
+        attributes: JSON.stringify(skuFormData.attributes)
+      };
+
+      if (isEditingSku && editingSku) {
+        await updateProductSku(editingSku.id, skuData);
+        setMessage('SKU更新成功');
+      } else {
+        await addProductSku(skuData);
+        setMessage('SKU添加成功');
+      }
+
+      // 刷新SKU列表
+      const response = await getProductSkus(skuProduct.id);
+      setProductSkus(response.data || []);
+
+      resetSkuForm();
+    } catch (err) {
+      setMessage('SKU操作失败: ' + (err.response?.data?.message || err.message));
+      console.error('SKU操作失败:', err);
+    }
+  };
+
+  // 删除SKU
+  const handleDeleteSku = async (skuId) => {
+    if (window.confirm('确定要删除这个SKU吗？')) {
+      try {
+        await deleteProductSku(skuId);
+        setMessage('SKU删除成功');
+
+        // 刷新SKU列表
+        const response = await getProductSkus(skuProduct.id);
+        setProductSkus(response.data || []);
+      } catch (err) {
+        setMessage('SKU删除失败: ' + (err.response?.data?.message || err.message));
+        console.error('删除SKU失败:', err);
+      }
+    }
+  };
+
   if (loading) {
     return <div className="loading"><div className="loading-spinner"></div></div>;
   }
@@ -694,12 +873,18 @@ const ProductManagement = () => {
                             删除
                           </button>
                         </div>
-                        <div style={{ marginTop: 'var(--spacing-xs)' }}>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-xs)' }}>
                           <button
                             onClick={() => openPromotionModal(product)}
                             className="btn btn-primary w-full"
                           >
                             添加促销
+                          </button>
+                          <button
+                            onClick={() => openSkuModal(product)}
+                            className="btn btn-info w-full"
+                          >
+                            管理SKU
                           </button>
                         </div>
                       </div>
@@ -775,8 +960,8 @@ const ProductManagement = () => {
           <div className="modal">
             <div className="modal-header">
               <h3 className="modal-title">为产品添加促销</h3>
-              <button 
-                className="modal-close" 
+              <button
+                className="modal-close"
                 onClick={closePromotionModal}
               >
                 ×
@@ -825,19 +1010,349 @@ const ProductManagement = () => {
               </div>
             </div>
             <div className="modal-footer">
-              <button 
+              <button
                 className="btn btn-primary"
                 onClick={submitPromotions}
               >
                 确认添加
               </button>
-              <button 
+              <button
                 className="btn btn-secondary"
                 onClick={closePromotionModal}
                 style={{ marginLeft: 'var(--spacing-sm)' }}
               >
                 取消
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SKU管理模态框 */}
+      {showSkuModal && skuProduct && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: '800px', width: '90%' }}>
+            <div className="modal-header">
+              <h3 className="modal-title">管理SKU - {skuProduct.name}</h3>
+              <button
+                className="modal-close"
+                onClick={closeSkuModal}
+              >
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              {message && (
+                <div className={`alert ${message.includes('成功') ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: '1rem' }}>
+                  {message}
+                </div>
+              )}
+
+              {/* SKU表单 */}
+              <div style={{
+                padding: '1rem',
+                backgroundColor: 'var(--color-light)',
+                borderRadius: 'var(--border-radius)',
+                marginBottom: '1.5rem'
+              }}>
+                <h4 style={{ marginBottom: '1rem' }}>{isEditingSku ? '编辑SKU' : '添加新SKU'}</h4>
+
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label className="form-label">SKU编码</label>
+                  <input
+                    type="text"
+                    name="skuCode"
+                    value={skuFormData.skuCode}
+                    onChange={handleSkuChange}
+                    placeholder="例如: P001-RED-M"
+                    className="form-control"
+                  />
+                </div>
+
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <div className="form-group" style={{ flex: 1, marginBottom: '1rem' }}>
+                    <label className="form-label">价格</label>
+                    <input
+                      type="number"
+                      name="price"
+                      value={skuFormData.price}
+                      onChange={handleSkuChange}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      className="form-control"
+                    />
+                  </div>
+
+                  <div className="form-group" style={{ flex: 1, marginBottom: '1rem' }}>
+                    <label className="form-label">库存</label>
+                    <input
+                      type="number"
+                      name="stock"
+                      value={skuFormData.stock}
+                      onChange={handleSkuChange}
+                      placeholder="0"
+                      min="0"
+                      className="form-control"
+                    />
+                  </div>
+                </div>
+
+                {/* SKU图片上传 */}
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label className="form-label">SKU图片</label>
+                  <input
+                    type="file"
+                    onChange={handleSkuImageChange}
+                    accept="image/*"
+                    className="form-control"
+                  />
+                  {/* 图片预览 */}
+                  {skuImagePreview && (
+                    <div style={{
+                      position: 'relative',
+                      marginTop: '0.5rem',
+                      display: 'inline-block'
+                    }}>
+                      <img
+                        src={skuImagePreview}
+                        alt="SKU预览"
+                        style={{
+                          width: '100px',
+                          height: '100px',
+                          objectFit: 'cover',
+                          borderRadius: 'var(--border-radius)',
+                          border: '2px solid var(--border-color)'
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={removeSkuImage}
+                        style={{
+                          position: 'absolute',
+                          top: '-8px',
+                          right: '-8px',
+                          width: '24px',
+                          height: '24px',
+                          borderRadius: '50%',
+                          backgroundColor: 'var(--color-danger)',
+                          color: 'white',
+                          border: 'none',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '16px',
+                          lineHeight: '1'
+                        }}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 属性管理 */}
+                <div style={{ marginBottom: '1rem' }}>
+                  <label className="form-label" style={{ display: 'block', marginBottom: '0.5rem' }}>
+                    SKU属性
+                  </label>
+
+                  {/* 已添加的属性列表 */}
+                  {skuFormData.attributes.length > 0 && (
+                    <div style={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '0.5rem',
+                      marginBottom: '0.75rem'
+                    }}>
+                      {skuFormData.attributes.map((attr, index) => (
+                        <span
+                          key={index}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.25rem 0.75rem',
+                            backgroundColor: 'var(--primary-color)',
+                            color: 'white',
+                            borderRadius: '16px',
+                            fontSize: '0.85rem'
+                          }}
+                        >
+                          {attr.name}: {attr.value}
+                          <button
+                            type="button"
+                            onClick={() => removeAttribute(index)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'white',
+                              cursor: 'pointer',
+                              padding: 0,
+                              fontSize: '1rem',
+                              lineHeight: 1,
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 添加新属性 */}
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <input
+                      type="text"
+                      value={newAttribute.name}
+                      onChange={(e) => setNewAttribute(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="属性名称 (如: 颜色)"
+                      className="form-control"
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      type="text"
+                      value={newAttribute.value}
+                      onChange={(e) => setNewAttribute(prev => ({ ...prev, value: e.target.value }))}
+                      placeholder="属性值 (如: 红色)"
+                      className="form-control"
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={addAttribute}
+                      className="btn btn-primary"
+                      disabled={!newAttribute.name || !newAttribute.value}
+                    >
+                      添加
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={submitSku}
+                    className="btn btn-primary"
+                  >
+                    {isEditingSku ? '更新SKU' : '添加SKU'}
+                  </button>
+                  {isEditingSku && (
+                    <button
+                      onClick={handleCancelEditSku}
+                      className="btn btn-secondary"
+                    >
+                      取消编辑
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* SKU列表 */}
+              <div>
+                <h4 style={{ marginBottom: '1rem' }}>SKU列表</h4>
+                {productSkus.length === 0 ? (
+                  <div style={{
+                    padding: '2rem',
+                    textAlign: 'center',
+                    backgroundColor: 'var(--color-light)',
+                    borderRadius: 'var(--border-radius)'
+                  }}>
+                    <p style={{ color: 'var(--text-muted)' }}>暂无SKU</p>
+                  </div>
+                ) : (
+                  <div style={{
+                    maxHeight: '300px',
+                    overflowY: 'auto'
+                  }}>
+                    {productSkus.map(sku => {
+                      // 解析attributes
+                      const attributes = typeof sku.attributes === 'string' ? JSON.parse(sku.attributes) : (sku.attributes || []);
+
+                      return (
+                        <div
+                          key={sku.id}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '1rem',
+                            marginBottom: '0.5rem',
+                            backgroundColor: 'var(--color-light)',
+                            borderRadius: 'var(--border-radius)',
+                            border: '1px solid var(--border-color)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
+                            {/* SKU图片 */}
+                            {sku.imageUrl && (
+                              <img
+                                src={`http://localhost:5192/api/file/view/${sku.imageUrl}`}
+                                alt={sku.skuCode}
+                                style={{
+                                  width: '60px',
+                                  height: '60px',
+                                  objectFit: 'cover',
+                                  borderRadius: 'var(--border-radius)',
+                                  border: '1px solid var(--border-color)'
+                                }}
+                              />
+                            )}
+                            <div>
+                              <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
+                                {sku.skuCode}
+                              </div>
+                              <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                                价格: ¥{(sku.price || sku.unitPrice)?.toFixed(2)} | 库存: {sku.stock || sku.quantityInStock}
+                              </div>
+                              {attributes.length > 0 && (
+                                <div style={{
+                                  display: 'flex',
+                                  flexWrap: 'wrap',
+                                  gap: '0.25rem',
+                                  marginTop: '0.25rem'
+                                }}>
+                                  {attributes.map((attr, idx) => (
+                                    <span
+                                      key={idx}
+                                      style={{
+                                        fontSize: '0.8rem',
+                                        padding: '0.125rem 0.5rem',
+                                        backgroundColor: 'var(--primary-color)',
+                                        color: 'white',
+                                        borderRadius: '4px'
+                                      }}
+                                    >
+                                      {attr.name}: {attr.value}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                              onClick={() => handleEditSku(sku)}
+                              className="btn btn-secondary"
+                              style={{ padding: '0.5rem 1rem' }}
+                            >
+                              编辑
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSku(sku.id)}
+                              className="btn btn-danger"
+                              style={{ padding: '0.5rem 1rem' }}
+                            >
+                              删除
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

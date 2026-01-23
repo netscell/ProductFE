@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllProducts } from '../api/product';
+import { getAllProducts,getAllProductSkus } from '../api/product';
 import { addToCart } from '../api/cart';
 
 const ProductList = () => {
@@ -21,7 +21,7 @@ const ProductList = () => {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const response = await getAllProducts({
+      const response = await getAllProductSkus({
         page: currentPage,
         size: pageSize
       });
