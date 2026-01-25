@@ -10,6 +10,8 @@ import ProductList from './components/ProductList';
 import Cart from './components/Cart';
 import ProductManagement from './components/ProductManagement';
 import ProductDetail from './components/ProductDetail';
+import OrderList from './components/OrderList';
+import OrderDetail from './components/OrderDetail';
 
 // 受保护路由组件
 const ProtectedRoute = ({ children }) => {
@@ -110,6 +112,14 @@ const Navigation = () => {
                 </li>
                 <li>
                   <Link
+                    to="/orders"
+                    className={`nav-link ${location.pathname === '/orders' ? 'active' : ''}`}
+                  >
+                    我的订单
+                  </Link>
+                </li>
+                <li>
+                  <Link
                     to="/promotion-types"
                     className={`nav-link ${location.pathname === '/promotion-types' ? 'active' : ''}`}
                   >
@@ -189,6 +199,8 @@ function App() {
           <Route path="/products" element={<ProtectedRoute><ProductList /></ProtectedRoute>} />
           <Route path="/product/:id" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
           <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
+          <Route path="/orders" element={<ProtectedRoute><OrderList /></ProtectedRoute>} />
+          <Route path="/order/:id" element={<ProtectedRoute><OrderDetail /></ProtectedRoute>} />
           <Route path="/promotion-types" element={<ProtectedRoute><PromotionTypeManagement /></ProtectedRoute>} />
           <Route path="/promotions" element={<ProtectedRoute><PromotionManagement /></ProtectedRoute>} />
           

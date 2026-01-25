@@ -31,3 +31,18 @@ export const removeFromCart = (itemId) => {
 export const clearCart = () => {
   return axiosInstance.delete('/product/cart');
 };
+
+// 创建订单
+export const createOrder = (orderData) => {
+  return axiosInstance.post('/product/order', orderData);
+};
+
+// 获取所有订单
+export const getOrders = () => {
+  return axiosInstance.get('/product/order');
+};
+
+// 获取订单详情
+export const getOrderDetail = (orderId) => {
+  return axiosInstance.get(`/product/order/${orderId}`);
+};

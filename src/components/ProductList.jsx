@@ -40,7 +40,7 @@ const ProductList = () => {
   const handleAddToCart = async (product) => {
     try {
       await addToCart({
-        productId: product.id,
+        productSkuId: product.id,
         quantity: 1
       });
       alert('添加到购物车成功');

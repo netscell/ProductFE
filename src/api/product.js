@@ -11,43 +11,71 @@ export const getAllProductSkus = (params) => {
 
 // 获取指定产品的SKU
 export const getProductSkus = (productId) => {
-  return axiosInstance.get(`/product/${productId}/skus`);
+  return axiosInstance.get(`/productskus?productId=${productId}`);
 };
 
 // 添加产品SKU
 export const addProductSku = (data) => {
-  const formData = new FormData();
-  Object.keys(data).forEach(key => {
-    if (key === 'image' && data[key] instanceof File) {
-      formData.append('image', data[key]);
-    } else {
-      formData.append(key, data[key]);
-    }
-  });
-  return axiosInstance.post('/productsku', formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  });
+  // 如果有图片文件,需要先单独上传图片
+  if (data.image && (data.image instanceof File || (Array.isArray(data.image) && data.image.length > 0))) {
+    const formData = new FormData();
+    const images = Array.isArray(data.image) ? data.image : [data.image];
+    images.forEach(file => {
+      formData.append('images', file);
+    });
+
+    return axiosInstance.post('/file/upload/multi', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    }).then(response => {
+      // 上传成功后,用返回的图片URL替换data中的image
+      const dataWithoutImage = { ...data };
+      delete dataWithoutImage.image;
+      dataWithoutImage.imageUrls = response.data.files || response.data.urls || [];
+      // 发送JSON数据
+      return axiosInstance.post('/productsku', dataWithoutImage);
+    });
+  }
+
+  // 没有图片,直接发送JSON数据
+  const dataToSend = { ...data };
+  if (dataToSend.image === null || dataToSend.image === undefined) {
+    delete dataToSend.image;
+  }
+  return axiosInstance.post('/productsku', dataToSend);
 };
 
 // 更新产品SKU
 export const updateProductSku = (id, data) => {
-  const formData = new FormData();
-  Object.keys(data).forEach(key => {
-    if (key === 'image' && data[key] instanceof File) {
-      formData.append('image', data[key]);
-    } else if (key === 'image' && data[key] === null) {
-      // 如果image为null,表示不更新图片
-    } else {
-      formData.append(key, data[key]);
-    }
-  });
-  return axiosInstance.put(`/productsku/${id}`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  });
+  // 如果有新图片文件,需要先单独上传图片
+  if (data.image && (data.image instanceof File || (Array.isArray(data.image) && data.image.length > 0))) {
+    const formData = new FormData();
+    const images = Array.isArray(data.image) ? data.image : [data.image];
+    images.forEach(file => {
+      formData.append('images', file);
+    });
+
+    return axiosInstance.post('/file/upload/multi', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    }).then(response => {
+      // 上传成功后,用返回的图片URL替换data中的image
+      const dataWithoutImage = { ...data };
+      delete dataWithoutImage.image;
+      dataWithoutImage.imageUrls = response.data.imageUrls || response.data.urls || [];
+      // 发送JSON数据
+      return axiosInstance.put(`/productsku/${id}`, dataWithoutImage);
+    });
+  }
+
+  // 没有新图片,直接发送JSON数据
+  const dataToSend = { ...data };
+  if (dataToSend.image === null || dataToSend.image === undefined) {
+    delete dataToSend.image;
+  }
+  return axiosInstance.put(`/productsku/${id}`, dataToSend);
 };
 
 // 删除产品SKU
@@ -57,7 +85,7 @@ export const deleteProductSku = (id) => {
 
 // 获取单个产品
 export const getProduct = (id) => {
-  return axiosInstance.get(`/product/${id}`);
+  return axiosInstance.get(`/productsku/${id}`);
 };
 
 // 上传图片

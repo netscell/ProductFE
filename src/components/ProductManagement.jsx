@@ -64,10 +64,10 @@ const ProductManagement = () => {
     price: '',
     stock: 0,
     attributes: [], // [{ name: '颜色', value: '红色' }, { name: '尺寸', value: 'M' }]
-    image: null
+    image: null,
   });
   const [newAttribute, setNewAttribute] = useState({ name: '', value: '' });
-  const [skuImagePreview, setSkuImagePreview] = useState(null);
+  const [skuImagePreviews, setSkuImagePreviews] = useState([]);
 
   // 获取所有产品
   useEffect(() => {
@@ -414,6 +414,7 @@ const ProductManagement = () => {
   // 打开SKU管理模态框
   const openSkuModal = async (product) => {
     setSkuProduct(product);
+    setMessage(''); // 清空之前的错误消息
     try {
       const response = await getProductSkus(product.id);
       setProductSkus(response.data || []);
@@ -444,7 +445,7 @@ const ProductManagement = () => {
       image: null
     });
     setNewAttribute({ name: '', value: '' });
-    setSkuImagePreview(null);
+    setSkuImagePreviews([]);
   };
 
   // 添加属性
@@ -474,22 +475,23 @@ const ProductManagement = () => {
 
   // 处理SKU图片上传
   const handleSkuImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setSkuFormData(prev => ({ ...prev, image: file }));
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      setSkuFormData(prev => ({ ...prev, image: files }));
       // 创建预览
-      const preview = URL.createObjectURL(file);
-      setSkuImagePreview(preview);
+      const previews = files.map(file => URL.createObjectURL(file));
+      setSkuImagePreviews(previews);
     }
   };
 
-  // 删除SKU图片
-  const removeSkuImage = () => {
-    if (skuImagePreview) {
-      URL.revokeObjectURL(skuImagePreview);
+  // 删除单个SKU图片
+  const removeSkuImage = (index) => {
+    if (skuImagePreviews[index]) {
+      URL.revokeObjectURL(skuImagePreviews[index]);
     }
-    setSkuFormData(prev => ({ ...prev, image: null }));
-    setSkuImagePreview(null);
+    setSkuImagePreviews(prev => prev.filter((_, i) => i !== index));
+    const newImages = Array.isArray(skuFormData.image) ? skuFormData.image.filter((_, i) => i !== index) : null;
+    setSkuFormData(prev => ({ ...prev, image: newImages }));
   };
 
   // 开始编辑SKU
@@ -503,13 +505,17 @@ const ProductManagement = () => {
       price: sku.price || sku.unitPrice || '',
       stock: sku.stock || sku.quantityInStock || 0,
       attributes: attributes,
-      image: null
+      image: null,
+      imageUrls: sku.imageUrls || []
     });
-    // 设置图片预览
-    if (sku.imageUrl) {
-      setSkuImagePreview(`http://localhost:5192/api/file/view/${sku.imageUrl}`);
+    // 设置图片预览 (支持多个图片)
+    if (sku.imageUrls && sku.imageUrls.length > 0) {
+      const previews = sku.imageUrls.map(url => `http://localhost:5192/api/file/view/${url}`);
+      setSkuImagePreviews(previews);
+    } else if (sku.imageUrl) {
+      setSkuImagePreviews([`http://localhost:5192/api/file/view/${sku.imageUrl}`]);
     } else {
-      setSkuImagePreview(null);
+      setSkuImagePreviews([]);
     }
   };
 
@@ -529,14 +535,22 @@ const ProductManagement = () => {
       return;
     }
 
+    setMessage(''); // 清空之前的错误消息
+
     try {
       const skuData = {
         productId: skuProduct.id,
         skuCode: skuFormData.skuCode,
         unitPrice: parseFloat(skuFormData.price),
         quantityInStock: parseInt(skuFormData.stock),
-        attributes: JSON.stringify(skuFormData.attributes)
+        attributes: JSON.stringify(skuFormData.attributes),
+        
       };
+
+      // 如果有图片,添加到数据中
+      if (skuFormData.image) {
+        skuData.image = skuFormData.image;
+      }
 
       if (isEditingSku && editingSku) {
         await updateProductSku(editingSku.id, skuData);
@@ -1105,49 +1119,61 @@ const ProductManagement = () => {
                     type="file"
                     onChange={handleSkuImageChange}
                     accept="image/*"
+                    multiple
                     className="form-control"
                   />
+                  <small className="form-text" style={{ marginTop: 'var(--spacing-xs)' }}>
+                    提示：按住Ctrl键（Windows）或Command键（Mac）可选择多张图片
+                  </small>
                   {/* 图片预览 */}
-                  {skuImagePreview && (
+                  {skuImagePreviews.length > 0 && (
                     <div style={{
-                      position: 'relative',
-                      marginTop: '0.5rem',
-                      display: 'inline-block'
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                      gap: '0.5rem',
+                      marginTop: '0.5rem'
                     }}>
-                      <img
-                        src={skuImagePreview}
-                        alt="SKU预览"
-                        style={{
-                          width: '100px',
-                          height: '100px',
-                          objectFit: 'cover',
-                          borderRadius: 'var(--border-radius)',
-                          border: '2px solid var(--border-color)'
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={removeSkuImage}
-                        style={{
-                          position: 'absolute',
-                          top: '-8px',
-                          right: '-8px',
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          backgroundColor: 'var(--color-danger)',
-                          color: 'white',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '16px',
-                          lineHeight: '1'
-                        }}
-                      >
-                        ×
-                      </button>
+                      {skuImagePreviews.map((preview, index) => (
+                        <div key={index} style={{
+                          position: 'relative',
+                          display: 'inline-block'
+                        }}>
+                          <img
+                            src={preview}
+                            alt={`SKU预览 ${index + 1}`}
+                            style={{
+                              width: '100px',
+                              height: '100px',
+                              objectFit: 'cover',
+                              borderRadius: 'var(--border-radius)',
+                              border: '2px solid var(--border-color)'
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeSkuImage(index)}
+                            style={{
+                              position: 'absolute',
+                              top: '-8px',
+                              right: '-8px',
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '50%',
+                              backgroundColor: 'var(--color-danger)',
+                              color: 'white',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '16px',
+                              lineHeight: '1'
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -1285,8 +1311,21 @@ const ProductManagement = () => {
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1 }}>
-                            {/* SKU图片 */}
-                            {sku.imageUrl && (
+                            {/* SKU图片 (显示第一张) */}
+                            {sku.imageUrls && sku.imageUrls.length > 0 && (
+                              <img
+                                src={`http://localhost:5192/api/file/view/${sku.imageUrls[0]}`}
+                                alt={sku.skuCode}
+                                style={{
+                                  width: '60px',
+                                  height: '60px',
+                                  objectFit: 'cover',
+                                  borderRadius: 'var(--border-radius)',
+                                  border: '1px solid var(--border-color)'
+                                }}
+                              />
+                            )}
+                            {sku.imageUrl && !sku.imageUrls && (
                               <img
                                 src={`http://localhost:5192/api/file/view/${sku.imageUrl}`}
                                 alt={sku.skuCode}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getCart, updateCartItem, deleteCartItem, clearCart } from '../api/cart';
+import { getCart, updateCartItem, deleteCartItem, clearCart, createOrder } from '../api/cart';
 
 const Cart = () => {
   const [cartItems, setCartItems] = useState([]);
@@ -70,6 +70,51 @@ const Cart = () => {
  * @returns {number} 更新后的累计总价
  */
 return cartItems.items?.reduce((total, item) => total + (item.unitPrice * item.quantity), 0);
+  };
+
+  const handleCheckout = async () => {
+    if (!cartItems.items || cartItems.items.length === 0) {
+      alert('购物车为空，无法结算');
+      return;
+    }
+
+    try {
+      // 构建订单数据
+      const totalPrice = calculateTotal();
+      const actualPrice = totalPrice; // 实际价格，可以后续添加优惠逻辑
+
+      // 构建订单项数组
+      const orderItemDtos = cartItems.items.map(item => ({
+        productSkuId: item.productSkuId,
+        quantity: item.quantity
+      }));
+
+      const orderData = {
+        totalPrice: totalPrice,
+        actualPrice: actualPrice,
+        orderItemDtos: orderItemDtos
+      };
+
+      console.log('创建订单数据:', orderData);
+
+      // 调用创建订单API
+      const response = await createOrder(orderData);
+
+      console.log('订单创建成功:', response.data);
+
+      // 清空购物车
+      await clearCart();
+      await fetchCart();
+
+      alert('订单创建成功！');
+
+      // 可以跳转到订单详情页（如果有的话）
+      // navigate(`/order/${response.data.id}`);
+
+    } catch (err) {
+      console.error('创建订单失败:', err);
+      alert('创建订单失败: ' + (err.response?.data?.message || err.message || '请稍后重试'));
+    }
   };
 
   if (loading) {
@@ -176,7 +221,7 @@ return cartItems.items?.reduce((total, item) => total + (item.unitPrice * item.q
                     </span>
                   </div>
                   <div style={{ marginTop: 'var(--spacing-md)' }}>
-                    <button className="btn btn-primary w-full btn-lg">
+                    <button className="btn btn-primary w-full btn-lg" onClick={handleCheckout}>
                       去结算
                     </button>
                   </div>

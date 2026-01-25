@@ -83,7 +83,10 @@ const ProductDetail = () => {
   // 添加到购物车
   const handleAddToCart = async () => {
     try {
-      await addToCart(product.id, quantity);
+      await addToCart({
+        productSkuId: product.id,
+        quantity: 1
+      });
       setMessage('已添加到购物车');
       setTimeout(() => setMessage(''), 3000);
     } catch (err) {
