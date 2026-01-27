@@ -29,3 +29,8 @@ export const deletePromotion = (id) => {
 export const addPromotionToProduct = (data) => {
   return axiosInstance.post('/product/addpromotion', data);
 };
+
+// 添加促销到SKU
+export const addPromotionToSku = (data) => {
+  return axiosInstance.post('/productsku/addpromotion', data);
+};

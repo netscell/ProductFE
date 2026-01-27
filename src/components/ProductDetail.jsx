@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getProduct } from '../api/product';
 import { addToCart } from '../api/cart';
+import { getProductReviews, addProductReview, updateReview, deleteReview, uploadImages } from '../api/comment';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -13,10 +14,22 @@ const ProductDetail = () => {
   const [quantity, setQuantity] = useState(1);
   const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState('details');
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState(null);
+  const [newReview, setNewReview] = useState({ rating: 5, content: '', imageUrls: [] });
+  const [newReviewImages, setNewReviewImages] = useState([]);
+  const [newReviewImagePreviews, setNewReviewImagePreviews] = useState([]);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [editingReviewId, setEditingReviewId] = useState(null);
+  const [editReview, setEditReview] = useState({ rating: 5, content: '', imageUrls: [] });
+  const [editReviewImages, setEditReviewImages] = useState([]);
+  const [editReviewImagePreviews, setEditReviewImagePreviews] = useState([]);
 
   // 获取产品详情
   useEffect(() => {
     fetchProductDetail();
+    fetchReviews();
   }, [id]);
 
   const fetchProductDetail = async () => {
@@ -34,6 +47,184 @@ const ProductDetail = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // 获取产品评论
+  const fetchReviews = async () => {
+    try {
+      setReviewsLoading(true);
+      const response = await getProductReviews(id);
+      setReviews(response.data || []);
+      setReviewsError(null);
+    } catch (err) {
+      setReviewsError('获取评论失败');
+      console.error('获取评论失败:', err);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
+
+  // 提交评论
+  const submitReview = async (e) => {
+    e.preventDefault();
+    try {
+      let imageUrls = newReview.imageUrls || [];
+
+      // 如果有新图片，先上传
+      if (newReviewImages.length > 0) {
+        const uploadResponse = await uploadImages(newReviewImages);
+        imageUrls = [...imageUrls, ...(uploadResponse.data.files || [])];
+      }
+
+      await addProductReview({
+        productSkuId: parseInt(id),
+        rating: newReview.rating,
+        reviewText: newReview.content,
+        imageUrls: imageUrls
+      }, id);
+      setMessage('评论提交成功');
+      setNewReview({ rating: 5, content: '', imageUrls: [] });
+      setNewReviewImages([]);
+      setNewReviewImagePreviews([]);
+      setShowReviewForm(false);
+      fetchReviews(); // 重新加载评论列表
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      setMessage('评论提交失败');
+      console.error('评论提交失败:', err);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  // 开始编辑评论
+  const handleEditReview = (review) => {
+    setEditingReviewId(review.id);
+    setEditReview({
+      rating: review.rating,
+      content: review.content,
+      imageUrls: review.imageUrls || []
+    });
+    setEditReviewImages([]);
+    setEditReviewImagePreviews([]);
+    setShowReviewForm(false);
+  };
+
+  // 取消编辑评论
+  const handleCancelEditReview = () => {
+    setEditingReviewId(null);
+    setEditReview({ rating: 5, content: '', imageUrls: [] });
+    setEditReviewImages([]);
+    setEditReviewImagePreviews([]);
+  };
+
+  // 提交编辑评论
+  const submitEditReview = async (e) => {
+    e.preventDefault();
+    try {
+      let imageUrls = editReview.imageUrls || [];
+
+      // 如果有新图片，先上传
+      if (editReviewImages.length > 0) {
+        const uploadResponse = await uploadImages(editReviewImages);
+        imageUrls = [...imageUrls, ...(uploadResponse.data || [])];
+      }
+
+      await updateReview(editingReviewId, {
+        rating: editReview.rating,
+        content: editReview.content,
+        imageUrls: imageUrls
+      });
+      setMessage('评论修改成功');
+      setEditingReviewId(null);
+      setEditReview({ rating: 5, content: '', imageUrls: [] });
+      setEditReviewImages([]);
+      setEditReviewImagePreviews([]);
+      fetchReviews(); // 重新加载评论列表
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      setMessage('评论修改失败');
+      console.error('评论修改失败:', err);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  // 删除评论
+  const handleDeleteReview = async (reviewId) => {
+    if (!window.confirm('确定要删除这条评论吗？')) {
+      return;
+    }
+    try {
+      await deleteReview(reviewId);
+      setMessage('评论删除成功');
+      fetchReviews(); // 重新加载评论列表
+      setTimeout(() => setMessage(''), 3000);
+    } catch (err) {
+      setMessage('评论删除失败');
+      console.error('评论删除失败:', err);
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  // 处理新评论图片选择
+  const handleNewReviewImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      setNewReviewImages(prev => [...prev, ...files]);
+
+      // 创建预览
+      files.forEach(file => {
+        const preview = URL.createObjectURL(file);
+        setNewReviewImagePreviews(prev => [...prev, preview]);
+      });
+    }
+  };
+
+  // 删除新评论图片
+  const removeNewReviewImage = (index) => {
+    setNewReviewImages(prev => prev.filter((_, i) => i !== index));
+    setNewReviewImagePreviews(prev => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  // 删除已上传的新评论图片URL
+  const removeNewReviewImageUrl = (index) => {
+    setNewReview(prev => ({
+      ...prev,
+      imageUrls: prev.imageUrls.filter((_, i) => i !== index)
+    }));
+  };
+
+  // 处理编辑评论图片选择
+  const handleEditReviewImageChange = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length > 0) {
+      setEditReviewImages(prev => [...prev, ...files]);
+
+      // 创建预览
+      files.forEach(file => {
+        const preview = URL.createObjectURL(file);
+        setEditReviewImagePreviews(prev => [...prev, preview]);
+      });
+    }
+  };
+
+  // 删除编辑评论的新图片
+  const removeEditReviewImage = (index) => {
+    setEditReviewImages(prev => prev.filter((_, i) => i !== index));
+    setEditReviewImagePreviews(prev => {
+      URL.revokeObjectURL(prev[index]);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  // 删除编辑评论已上传的图片URL
+  const removeEditReviewImageUrl = (index) => {
+    setEditReview(prev => ({
+      ...prev,
+      imageUrls: prev.imageUrls.filter((_, i) => i !== index)
+    }));
   };
 
   // 切换图片
@@ -605,18 +796,447 @@ const ProductDetail = () => {
 
               {activeTab === 'reviews' && (
                 <div>
-                  <h3 style={{ marginBottom: '1rem' }}>用户评论</h3>
-                  <div style={{
-                    padding: '2rem',
-                    textAlign: 'center',
-                    backgroundColor: 'var(--color-light)',
-                    borderRadius: 'var(--border-radius)'
-                  }}>
-                    <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>暂无用户评论</p>
-                    <button className="btn btn-secondary">
-                      成为第一个评论者
-                    </button>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                    <h3 style={{ margin: 0 }}>用户评论 ({reviews.length})</h3>
+                    {!editingReviewId && (
+                      <button
+                        className="btn btn-primary"
+                        onClick={() => setShowReviewForm(!showReviewForm)}
+                      >
+                        {showReviewForm ? '取消评论' : '写评论'}
+                      </button>
+                    )}
                   </div>
+
+                  {/* 新增评论表单 */}
+                  {showReviewForm && !editingReviewId && (
+                    <div style={{
+                      padding: '1.5rem',
+                      backgroundColor: 'var(--color-light)',
+                      borderRadius: 'var(--border-radius)',
+                      marginBottom: '2rem',
+                      border: '1px solid var(--border-color)'
+                    }}>
+                      <h4 style={{ marginBottom: '1rem' }}>发表评论</h4>
+                      <form onSubmit={submitReview}>
+                        <div style={{ marginBottom: '1rem' }}>
+                          <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>评分：</label>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                type="button"
+                                onClick={() => setNewReview({ ...newReview, rating: star })}
+                                style={{
+                                  fontSize: '2rem',
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: star <= newReview.rating ? '#ffc107' : '#e0e0e0',
+                                  padding: 0
+                                }}
+                              >
+                                ★
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{ marginBottom: '1rem' }}>
+                          <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>评论内容：</label>
+                          <textarea
+                            value={newReview.content}
+                            onChange={(e) => setNewReview({ ...newReview, content: e.target.value })}
+                            required
+                            rows={4}
+                            style={{
+                              width: '100%',
+                              padding: '0.75rem',
+                              border: '1px solid var(--border-color)',
+                              borderRadius: 'var(--border-radius)',
+                              fontSize: '1rem',
+                              resize: 'vertical'
+                            }}
+                            placeholder="请输入您的评论..."
+                          />
+                        </div>
+                        <div style={{ marginBottom: '1rem' }}>
+                          <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>上传图片（可选）：</label>
+                          <input
+                            type="file"
+                            multiple
+                            accept="image/*"
+                            onChange={handleNewReviewImageChange}
+                            style={{ marginBottom: '0.5rem' }}
+                          />
+                          {/* 图片预览 */}
+                          {(newReviewImagePreviews.length > 0 || newReview.imageUrls.length > 0) && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                              {newReview.imageUrls.map((url, index) => (
+                                <div
+                                  key={`url-${index}`}
+                                  style={{
+                                    position: 'relative',
+                                    width: '100px',
+                                    height: '100px',
+                                    borderRadius: 'var(--border-radius)',
+                                    overflow: 'hidden',
+                                    border: '1px solid var(--border-color)'
+                                  }}
+                                >
+                                  <img
+                                    src={`http://localhost:5192/api/file/view/${url}`}
+                                    alt={`预览 ${index + 1}`}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeNewReviewImageUrl(index)}
+                                    style={{
+                                      position: 'absolute',
+                                      top: '2px',
+                                      right: '2px',
+                                      width: '24px',
+                                      height: '24px',
+                                      borderRadius: '50%',
+                                      backgroundColor: 'rgba(220, 53, 69, 0.9)',
+                                      color: 'white',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      fontSize: '14px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center'
+                                    }}
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))}
+                              {newReviewImagePreviews.map((preview, index) => (
+                                <div
+                                  key={`preview-${index}`}
+                                  style={{
+                                    position: 'relative',
+                                    width: '100px',
+                                    height: '100px',
+                                    borderRadius: 'var(--border-radius)',
+                                    overflow: 'hidden',
+                                    border: '1px solid var(--border-color)'
+                                  }}
+                                >
+                                  <img
+                                    src={preview}
+                                    alt={`预览 ${index + 1}`}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeNewReviewImage(index)}
+                                    style={{
+                                      position: 'absolute',
+                                      top: '2px',
+                                      right: '2px',
+                                      width: '24px',
+                                      height: '24px',
+                                      borderRadius: '50%',
+                                      backgroundColor: 'rgba(220, 53, 69, 0.9)',
+                                      color: 'white',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      fontSize: '14px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center'
+                                    }}
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button type="submit" className="btn btn-primary">
+                            提交评论
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            onClick={() => setShowReviewForm(false)}
+                          >
+                            取消
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* 评论列表 */}
+                  {reviewsLoading ? (
+                    <div style={{ textAlign: 'center', padding: '2rem' }}>
+                      <div className="loading-spinner"></div>
+                    </div>
+                  ) : reviewsError ? (
+                    <div className="alert alert-error">{reviewsError}</div>
+                  ) : reviews.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                      {reviews.map((review) => (
+                        <div
+                          key={review.id}
+                          style={{
+                            padding: '1.5rem',
+                            backgroundColor: 'var(--color-light)',
+                            borderRadius: 'var(--border-radius)',
+                            border: '1px solid var(--border-color)'
+                          }}
+                        >
+                          {/* 编辑评论表单 */}
+                          {editingReviewId === review.id ? (
+                            <div>
+                              <h4 style={{ marginBottom: '1rem' }}>编辑评论</h4>
+                              <form onSubmit={submitEditReview}>
+                                <div style={{ marginBottom: '1rem' }}>
+                                  <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>评分：</label>
+                                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                      <button
+                                        key={star}
+                                        type="button"
+                                        onClick={() => setEditReview({ ...editReview, rating: star })}
+                                        style={{
+                                          fontSize: '2rem',
+                                          background: 'none',
+                                          border: 'none',
+                                          cursor: 'pointer',
+                                          color: star <= editReview.rating ? '#ffc107' : '#e0e0e0',
+                                          padding: 0
+                                        }}
+                                      >
+                                        ★
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div style={{ marginBottom: '1rem' }}>
+                                  <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>评论内容：</label>
+                                  <textarea
+                                    value={editReview.content}
+                                    onChange={(e) => setEditReview({ ...editReview, content: e.target.value })}
+                                    required
+                                    rows={4}
+                                    style={{
+                                      width: '100%',
+                                      padding: '0.75rem',
+                                      border: '1px solid var(--border-color)',
+                                      borderRadius: 'var(--border-radius)',
+                                      fontSize: '1rem',
+                                      resize: 'vertical'
+                                    }}
+                                    placeholder="请输入您的评论..."
+                                  />
+                                </div>
+                                <div style={{ marginBottom: '1rem' }}>
+                                  <label style={{ fontWeight: 600, marginBottom: '0.5rem', display: 'block' }}>上传图片（可选）：</label>
+                                  <input
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    onChange={handleEditReviewImageChange}
+                                    style={{ marginBottom: '0.5rem' }}
+                                  />
+                                  {/* 图片预览 */}
+                                  {(editReviewImagePreviews.length > 0 || editReview.imageUrls.length > 0) && (
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                      {editReview.imageUrls.map((url, index) => (
+                                        <div
+                                          key={`url-${index}`}
+                                          style={{
+                                            position: 'relative',
+                                            width: '100px',
+                                            height: '100px',
+                                            borderRadius: 'var(--border-radius)',
+                                            overflow: 'hidden',
+                                            border: '1px solid var(--border-color)'
+                                          }}
+                                        >
+                                          <img
+                                            src={`http://localhost:5192/api/file/view/${url}`}
+                                            alt={`预览 ${index + 1}`}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => removeEditReviewImageUrl(index)}
+                                            style={{
+                                              position: 'absolute',
+                                              top: '2px',
+                                              right: '2px',
+                                              width: '24px',
+                                              height: '24px',
+                                              borderRadius: '50%',
+                                              backgroundColor: 'rgba(220, 53, 69, 0.9)',
+                                              color: 'white',
+                                              border: 'none',
+                                              cursor: 'pointer',
+                                              fontSize: '14px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center'
+                                            }}
+                                          >
+                                            ×
+                                          </button>
+                                        </div>
+                                      ))}
+                                      {editReviewImagePreviews.map((preview, index) => (
+                                        <div
+                                          key={`preview-${index}`}
+                                          style={{
+                                            position: 'relative',
+                                            width: '100px',
+                                            height: '100px',
+                                            borderRadius: 'var(--border-radius)',
+                                            overflow: 'hidden',
+                                            border: '1px solid var(--border-color)'
+                                          }}
+                                        >
+                                          <img
+                                            src={preview}
+                                            alt={`预览 ${index + 1}`}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                          />
+                                          <button
+                                            type="button"
+                                            onClick={() => removeEditReviewImage(index)}
+                                            style={{
+                                              position: 'absolute',
+                                              top: '2px',
+                                              right: '2px',
+                                              width: '24px',
+                                              height: '24px',
+                                              borderRadius: '50%',
+                                              backgroundColor: 'rgba(220, 53, 69, 0.9)',
+                                              color: 'white',
+                                              border: 'none',
+                                              cursor: 'pointer',
+                                              fontSize: '14px',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center'
+                                            }}
+                                          >
+                                            ×
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                  <button type="submit" className="btn btn-primary">
+                                    保存修改
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    onClick={handleCancelEditReview}
+                                  >
+                                    取消
+                                  </button>
+                                </div>
+                              </form>
+                            </div>
+                          ) : (
+                            <>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                <div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                    <span style={{ fontWeight: 600, fontSize: '1.1rem' }}>
+                                      {review.userName || '匿名用户'}
+                                    </span>
+                                    <div style={{ color: '#ffc107', fontSize: '1.2rem' }}>
+                                      {'★'.repeat(review.rating)}
+                                      {'☆'.repeat(5 - review.rating)}
+                                    </div>
+                                  </div>
+                                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                    {review.createTime ? new Date(review.createTime).toLocaleString('zh-CN') : ''}
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                  <button
+                                    onClick={() => handleEditReview(review)}
+                                    className="btn btn-secondary"
+                                    style={{ padding: '0.25rem 0.75rem', fontSize: '0.85rem' }}
+                                  >
+                                    编辑
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteReview(review.id)}
+                                    className="btn"
+                                    style={{
+                                      padding: '0.25rem 0.75rem',
+                                      fontSize: '0.85rem',
+                                      backgroundColor: 'var(--color-danger)',
+                                      color: 'white',
+                                      border: 'none'
+                                    }}
+                                  >
+                                    删除
+                                  </button>
+                                </div>
+                              </div>
+                              <p style={{
+                                lineHeight: '1.8',
+                                color: 'var(--text-secondary)',
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word'
+                              }}>
+                                {review.content}
+                              </p>
+                              {/* 显示评论图片 */}
+                              {review.imageUrls && review.imageUrls.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '1rem' }}>
+                                  {review.imageUrls.map((url, index) => (
+                                    <img
+                                      key={index}
+                                      src={`http://localhost:5192/api/file/view/${url}`}
+                                      alt={`评论图片 ${index + 1}`}
+                                      style={{
+                                        width: '100px',
+                                        height: '100px',
+                                        objectFit: 'cover',
+                                        borderRadius: 'var(--border-radius)',
+                                        border: '1px solid var(--border-color)',
+                                        cursor: 'pointer'
+                                      }}
+                                      onClick={() => window.open(`http://localhost:5192/api/file/view/${url}`, '_blank')}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{
+                      padding: '2rem',
+                      textAlign: 'center',
+                      backgroundColor: 'var(--color-light)',
+                      borderRadius: 'var(--border-radius)'
+                    }}>
+                      <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>暂无用户评论</p>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => setShowReviewForm(true)}
+                      >
+                        成为第一个评论者
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
