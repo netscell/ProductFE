@@ -17,6 +17,7 @@ import UserNavigation from './components/UserNavigation';
 import PromotionTypeManagement from './components/PromotionTypeManagement';
 import PromotionManagement from './components/PromotionManagement';
 import Footprint from './components/Footprint';
+import ProductFamily from './components/ProductFamily';
 
 // 受保护路由组件
 const ProtectedRoute = ({ children }) => {
@@ -45,6 +46,7 @@ const AdminRoutes = () => {
       <Route index element={<Navigate to="product-management" replace />} />
       <Route path="product-management" element={<AdminLayout><ProductManagement /></AdminLayout>} />
       <Route path="add-product" element={<AdminLayout><ProductAdd /></AdminLayout>} />
+      <Route path="product-families" element={<AdminLayout><ProductFamily /></AdminLayout>} />
       <Route path="categories" element={<AdminLayout><CategoryManagement /></AdminLayout>} />
       <Route path="promotions" element={<AdminLayout><PromotionManagement /></AdminLayout>} />
       <Route path="promotion-types" element={<AdminLayout><PromotionTypeManagement /></AdminLayout>} />

@@ -20,7 +20,8 @@ const AdminLayout = ({ children }) => {
       icon: '📦',
       children: [
         { path: '/admin/product-management', label: '产品管理' },
-        { path: '/admin/add-product', label: '添加产品' }
+        { path: '/admin/add-product', label: '添加产品' },
+        { path: '/admin/product-families', label: '产品家族管理' }
       ]
     },
     {
