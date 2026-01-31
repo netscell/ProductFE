@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { getProduct } from '../api/product';
 import { addToCart } from '../api/cart';
 import { getProductReviews, addProductReview, updateReview, deleteReview, uploadImages } from '../api/comment';
+import { addFootprint } from '../api/footprint';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -40,6 +41,17 @@ const ProductDetail = () => {
       setProduct({ ...response.data, specs });
       console.log('产品详情specs:', response.data.specs);
       console.log('typeof spec:', typeof response.data.specs)
+
+      // 添加足迹记录（使用第一个SKU）
+      try {
+        const firstSku = response.data.skus && response.data.skus.length > 0 ? response.data.skus[0] : null;
+        if (firstSku) {
+          await addFootprint(firstSku.id);
+        }
+      } catch (footprintErr) {
+        console.error('添加足迹失败:', footprintErr);
+      }
+
       setError(null);
     } catch (err) {
       setError('获取产品详情失败');
