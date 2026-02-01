@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getProduct } from '../api/product';
+import { getProductSku } from '../api/product';
 import { addToCart } from '../api/cart';
 import { getProductReviews, addProductReview, updateReview, deleteReview, uploadImages } from '../api/comment';
 import { addFootprint } from '../api/footprint';
@@ -27,6 +27,11 @@ const ProductDetail = () => {
   const [editReviewImages, setEditReviewImages] = useState([]);
   const [editReviewImagePreviews, setEditReviewImagePreviews] = useState([]);
 
+  // 处理添加到对比
+  const handleAddToCompare = () => {
+    navigate(`/compare/${id}`);
+  };
+
   // 获取产品详情
   useEffect(() => {
     fetchProductDetail();
@@ -36,11 +41,11 @@ const ProductDetail = () => {
   const fetchProductDetail = async () => {
     try {
       setLoading(true);
-      const response = await getProduct(id);
+      const response = await getProductSku(id);
       const specs = JSON.parse(response.data.specs);
       setProduct({ ...response.data, specs });
-      console.log('产品详情specs:', response.data.specs);
-      console.log('typeof spec:', typeof response.data.specs)
+      //console.log('产品详情specs:', response.data.specs);
+      //console.log('typeof spec:', typeof response.data.specs)
 
       // 添加足迹记录（使用第一个SKU）
       try {
@@ -630,6 +635,13 @@ const ProductDetail = () => {
 
               {/* 操作按钮 */}
               <div style={{ display: 'flex', gap: '1rem' }}>
+                <button
+                  onClick={handleAddToCompare}
+                  className="btn btn-secondary"
+                  style={{ flex: 1, padding: '1rem', fontSize: '1.1rem' }}
+                >
+                  对比
+                </button>
                 <button
                   onClick={handleAddToCart}
                   disabled={product.quantityInStock === 0}

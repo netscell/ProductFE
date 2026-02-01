@@ -87,7 +87,7 @@ const ProductList = () => {
                     >
                       <img
                         src={`http://localhost:5192/api/file/view/${product.imageUrls?.[0] }`}
-                        alt={product.name}
+                        alt={product.productName}
                         className="img-responsive img-preview mb-3"
                         style={{
                           height: '150px',
@@ -99,7 +99,7 @@ const ProductList = () => {
                         onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
                       />
                       <h3 style={{ fontSize: '1.1rem', marginBottom: 'var(--spacing-sm)', fontWeight: 600 }}>
-                        {product.name}
+                        {product.productName}
                       </h3>
                       <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: 'var(--spacing-md)' }}>
                         {product.description?.substring(0, 50)}...

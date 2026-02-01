@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { addProduct, uploadImages, uploadSpecificationExcel } from '../api/product';
+import { getProductFamiliesByCategory } from '../api/productFamily';
 import { getAllCategories } from '../api/category';
+import axiosInstance from '../api/axiosInstance';
 
 const ProductAdd = () => {
   // 分类状态
@@ -8,23 +10,27 @@ const ProductAdd = () => {
   const [level1Categories, setLevel1Categories] = useState([]); // 一级分类
   const [level2Categories, setLevel2Categories] = useState([]); // 二级分类
   const [level3Categories, setLevel3Categories] = useState([]); // 三级分类
-  
+  const [families, setFamilies] = useState([]); // 产品家族列表
+
   // 选中的分类ID
   const [selectedLevel1, setSelectedLevel1] = useState('');
   const [selectedLevel2, setSelectedLevel2] = useState('');
   const [selectedLevel3, setSelectedLevel3] = useState([]); // 三级分类改为数组，支持多选
-  
+  const [selectedFamily, setSelectedFamily] = useState(''); // 选中的产品家族
+
   const [formData, setFormData] = useState({
     name: '',
-    UnitPrice: '',
+    StartingPrice: '',
     description: '',
-    quantity: 0,
+    //quantity: 0,
+    imageUrl:'',
     categoryIds: [], // 将categoryId改为categoryIds数组
-    images: [], // 存储图片文件
-    imageUrls: [], // 存储上传后的图片地址
+    productFamilyId: '', // 产品家族ID
+    image: null, // 存储图片文件
+    imageUrl: '', // 存储上传后的图片地址
     specificationFile: null // 存储规格明细Excel文件
   });
-  const [previewImages, setPreviewImages] = useState([]); // 预览图片数组
+  const [previewImage, setPreviewImage] = useState(null); // 预览图片
   const [message, setMessage] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [excelFileName, setExcelFileName] = useState(''); // Excel文件名显示
@@ -37,11 +43,11 @@ const ProductAdd = () => {
   // 清理预览图片URL，避免内存泄漏
   useEffect(() => {
     return () => {
-      previewImages.forEach(preview => {
-        URL.revokeObjectURL(preview);
-      });
+      if (previewImage) {
+        URL.revokeObjectURL(previewImage);
+      }
     };
-  }, [previewImages]);
+  }, [previewImage]);
 
   const fetchCategories = async () => {
     try {
@@ -63,8 +69,10 @@ const ProductAdd = () => {
     setSelectedLevel1(level1Id);
     setSelectedLevel2('');
     setSelectedLevel3([]);
-    setFormData(prev => ({ ...prev, categoryIds: [] })); // 重置分类ID数组
-    
+    setSelectedFamily(''); // 重置产品家族
+    setFamilies([]); // 清空产品家族列表
+    setFormData(prev => ({ ...prev, categoryIds: [], productFamilyId: '' })); // 重置分类ID数组和产品家族
+
     // 过滤出对应的二级分类
     const level2 = allCategories.filter(x => x.id == level1Id).flatMap(x => x.subCategories || []);
     setLevel2Categories(level2);
@@ -72,16 +80,27 @@ const ProductAdd = () => {
   };
 
   // 处理二级分类选择
-  const handleLevel2Change = (e) => {
+  const handleLevel2Change = async (e) => {
     const level2Id = e.target.value;
     setSelectedLevel2(level2Id);
     setSelectedLevel3([]);
-    setFormData(prev => ({ ...prev, categoryIds: [] })); // 重置分类ID数组
-    
+    setSelectedFamily(''); // 重置产品家族选择
+    setFormData(prev => ({ ...prev, categoryIds: [], productFamilyId: '' })); // 重置分类ID数组和产品家族
+
     // 过滤出对应的三级分类
     const level3 = allCategories.flatMap(x => x.subCategories || [])
     .filter(x => x.id == level2Id).flatMap(x => x.specifications || []);
     setLevel3Categories(level3);
+
+    // 加载该分类下的产品家族
+    try {
+      const response = await getProductFamiliesByCategory(level2Id);
+      const familiesData = response.data || [];
+      setFamilies(familiesData);
+    } catch (error) {
+      console.error('获取产品家族失败:', error);
+      setFamilies([]);
+    }
   };
 
   // 处理三级分类选择（多选）
@@ -101,33 +120,28 @@ const ProductAdd = () => {
 
   // 处理图片上传
   const handleImageChange = (e) => {
-    const files = Array.from(e.target.files); // 获取所有选择的文件
-    if (files.length > 0) {
+    const file = e.target.files[0]; // 获取选择的文件
+    if (file) {
       // 保存选择的图片
-      setFormData(prev => ({ ...prev, images: [...prev.images, ...files] }));
-      
+      setFormData(prev => ({ ...prev, image: file }));
+
       // 创建预览图片URL
-      const newPreviews = files.map(file => URL.createObjectURL(file));
-      setPreviewImages(prev => [...prev, ...newPreviews]);
-      
-      // 清空文件输入，允许重新选择相同文件
-      e.target.value = '';
+      setPreviewImage(URL.createObjectURL(file));
     }
   };
 
   // 删除预览图片
-  const removePreviewImage = (index) => {
+  const removePreviewImage = () => {
     // 释放预览图片URL
-    URL.revokeObjectURL(previewImages[index]);
+    if (previewImage) {
+      URL.revokeObjectURL(previewImage);
+    }
 
-    // 更新预览图片数组
-    setPreviewImages(prev => prev.filter((_, i) => i !== index));
+    // 清空预览图片
+    setPreviewImage(null);
 
-    // 更新图片文件数组
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter((_, i) => i !== index)
-    }));
+    // 清空图片文件
+    setFormData(prev => ({ ...prev, image: null }));
   };
 
   // 处理Excel文件上传
@@ -169,8 +183,8 @@ const ProductAdd = () => {
     }
 
     // 验证是否选择了图片
-    if (!formData.images || formData.images.length === 0) {
-      setMessage('请至少选择一张图片');
+    if (!formData.image) {
+      setMessage('请选择一张图片');
       return;
     }
 
@@ -178,7 +192,9 @@ const ProductAdd = () => {
       setIsUploading(true);
 
       // 第一步：上传图片
-      const uploadResponse = await uploadImages(formData.images);
+      const formDataUpload = new FormData();
+      formDataUpload.append('files', formData.image);
+      const uploadResponse = await uploadImages(formDataUpload);
       const imageUrls = uploadResponse.data.files || [];
 
       if (imageUrls.length === 0) {
@@ -202,11 +218,11 @@ const ProductAdd = () => {
       // 第三步：添加产品
       const productData = {
         name: formData.name,
-        UnitPrice: formData.UnitPrice,
+        StartingPrice: formData.StartingPrice,
         description: formData.description,
-        QuantityInStock: formData.quantity,
         SpecificationIds: formData.categoryIds,
-        ImageUrls: imageUrls
+        ProductFamilyId: formData.productFamilyId || undefined,
+        imageUrl: imageUrls[0]
       };
 
       // 如果有规格明细文件，添加到产品数据中
@@ -221,20 +237,21 @@ const ProductAdd = () => {
       // 重置表单
       setFormData({
         name: '',
-        UnitPrice: '',
+        StartingPrice: '',
         description: '',
         categoryIds: [],
-        images: [],
-        imageUrls: [],
+        productFamilyId: '',
+        image: null,
+        imageUrl: '',
         specificationFile: null
       });
       setExcelFileName('');
 
       // 重置预览图片
-      previewImages.forEach(preview => {
-        URL.revokeObjectURL(preview);
-      });
-      setPreviewImages([]);
+      if (previewImage) {
+        URL.revokeObjectURL(previewImage);
+      }
+      setPreviewImage(null);
 
       // 重置分类选择
       setSelectedLevel1('');
@@ -278,31 +295,16 @@ const ProductAdd = () => {
             </div>
             
             <div className="form-group">
-              <label htmlFor="price" className="form-label">产品价格</label>
+              <label htmlFor="price" className="form-label">产品起始价格</label>
               <input
                 type="number"
                 id="price"
-                name="UnitPrice"
-                value={formData.UnitPrice}
+                name="StartingPrice"
+                value={formData.StartingPrice}
                 onChange={handleChange}
                 required
                 min="0"
                 step="0.01"
-                className="form-control"
-              />
-            </div>
-
-             <div className="form-group">
-              <label htmlFor="quantity" className="form-label">产品数量</label>
-              <input
-                type="number"
-                id="quantity"
-                name="quantity"
-                value={formData.quantity}
-                onChange={handleChange}
-                required
-                min="1"
-                step="1"
                 className="form-control"
               />
             </div>
@@ -375,7 +377,30 @@ const ProductAdd = () => {
                 提示：按住Ctrl键（Windows）或Command键（Mac）可选择多个三级分类
               </small>
             </div>
-            
+
+            {/* 产品家族选择 */}
+            {selectedLevel2 && families.length > 0 && (
+              <div className="form-group">
+                <label htmlFor="productFamily" className="form-label">产品家族</label>
+                <select
+                  id="productFamily"
+                  value={formData.productFamilyId}
+                  onChange={(e) => setFormData({ ...formData, productFamilyId: e.target.value })}
+                  className="form-control"
+                >
+                  <option value="">请选择产品家族</option>
+                  {families.map(family => (
+                    <option key={family.id} value={family.id}>
+                      {family.name}
+                    </option>
+                  ))}
+                </select>
+                <small className="form-text" style={{ marginTop: 'var(--spacing-xs)' }}>
+                  提示：选择产品家族后，该分类下其他属性会自动填充
+                </small>
+              </div>
+            )}
+
             <div className="form-group">
               <label htmlFor="image" className="form-label">产品图片</label>
               <input
@@ -384,58 +409,44 @@ const ProductAdd = () => {
                 name="image"
                 onChange={handleImageChange}
                 accept="image/*"
-                multiple // 添加multiple属性实现多选
                 className="form-control"
               />
-              <small className="form-text" style={{ marginTop: 'var(--spacing-xs)', marginBottom: 'var(--spacing-sm)' }}>
-                提示：按住Ctrl键（Windows）或Command键（Mac）可选择多张图片
-              </small>
-              
-              {/* 图片预览列表 */}
-              {previewImages.length > 0 && (
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', 
-                  gap: 'var(--spacing-sm)',
-                  marginTop: 'var(--spacing-sm)'
-                }}>
-                  {previewImages.map((preview, index) => (
-                    <div key={index} style={{ position: 'relative' }}>
-                      <img 
-                        src={preview} 
-                        alt={`预览 ${index + 1}`} 
-                        style={{ 
-                          width: '100%', 
-                          height: '100px', 
-                          objectFit: 'cover', 
-                          borderRadius: 'var(--border-radius)' 
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removePreviewImage(index)}
-                        style={{
-                          position: 'absolute',
-                          top: '-8px',
-                          right: '-8px',
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          backgroundColor: 'var(--color-danger)',
-                          color: 'white',
-                          border: 'none',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '16px',
-                          lineHeight: '1'
-                        }}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+
+              {/* 图片预览 */}
+              {previewImage && (
+                <div style={{ position: 'relative', marginTop: 'var(--spacing-sm)', display: 'inline-block' }}>
+                  <img
+                    src={previewImage}
+                    alt="预览"
+                    style={{
+                      width: '200px',
+                      height: '200px',
+                      objectFit: 'cover',
+                      borderRadius: 'var(--border-radius)'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={removePreviewImage}
+                    style={{
+                      position: 'absolute',
+                      top: '8px',
+                      right: '8px',
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      border: 'none',
+                      background: 'rgba(0, 0, 0, 0.6)',
+                      color: 'white',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '16px'
+                    }}
+                  >
+                    ×
+                  </button>
                 </div>
               )}
             </div>

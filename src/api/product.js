@@ -84,8 +84,12 @@ export const deleteProductSku = (id) => {
 };
 
 // 获取单个产品
-export const getProduct = (id) => {
+export const getProductSku = (id) => {
   return axiosInstance.get(`/productsku/${id}`);
+};
+
+export const getProduct = (id) => {
+  return axiosInstance.get(`/product/${id}`);
 };
 
 // 上传图片
@@ -135,4 +139,9 @@ export const updateProduct = (id, data) => {
 // 删除产品
 export const deleteProduct = (id) => {
   return axiosInstance.delete(`/product/${id}`);
+};
+
+// 根据分类ID获取产品列表
+export const getProductsByCategory = (categoryId) => {
+  return axiosInstance.get(`/products?categoryId=${categoryId}`);
 };

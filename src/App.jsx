@@ -18,6 +18,7 @@ import PromotionTypeManagement from './components/PromotionTypeManagement';
 import PromotionManagement from './components/PromotionManagement';
 import Footprint from './components/Footprint';
 import ProductFamily from './components/ProductFamily';
+import ProductCompare from './components/ProductCompare';
 
 // 受保护路由组件
 const ProtectedRoute = ({ children }) => {
@@ -61,6 +62,7 @@ const UserRoutes = () => {
       <Route path="/" element={<UserNavigation><ProductList /></UserNavigation>} />
       <Route path="/products" element={<UserNavigation><ProductList /></UserNavigation>} />
       <Route path="/product/:id" element={<UserNavigation><ProductDetail /></UserNavigation>} />
+      <Route path="/compare/:id?" element={<UserNavigation><ProductCompare /></UserNavigation>} />
       <Route path="/footprints" element={<UserNavigation><Footprint /></UserNavigation>} />
       <Route path="/cart" element={<UserNavigation><Cart /></UserNavigation>} />
       <Route path="/orders" element={<UserNavigation><OrderList /></UserNavigation>} />
